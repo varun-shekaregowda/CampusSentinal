@@ -16,8 +16,13 @@ import shutil
 from core.config_manager import config_manager
 from core.inference import run_camera_process
 
+os.makedirs("storage", exist_ok=True)
+os.makedirs("storage/screenshots", exist_ok=True)
+os.makedirs("storage/clips", exist_ok=True)
+
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="ui/static"), name="static")
+app.mount("/storage", StaticFiles(directory="storage"), name="storage")
 app.mount("/screenshots", StaticFiles(directory="storage/screenshots"), name="screenshots")
 app.mount("/clips", StaticFiles(directory="storage/clips"), name="clips")
 templates = Jinja2Templates(directory="ui/templates")
@@ -110,7 +115,13 @@ async def api_get_events():
     c.execute("SELECT * FROM events ORDER BY id DESC LIMIT 50")
     rows = c.fetchall()
     conn.close()
-    return [dict(ix) for ix in rows]
+    events = []
+    for ix in rows:
+        d = dict(ix)
+        d["screenshot"] = d.get("screenshot_path", "")
+        d["video"] = d.get("video_path", "")
+        events.append(d)
+    return events
 
 @app.post("/api/upload_video")
 async def api_upload_video(file: UploadFile = File(...)):

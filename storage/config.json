@@ -7,30 +7,6 @@
         "roi": []
     },
     {
-        "id": "92607ab4",
-        "name": "Classroom 101",
-        "url": "test_classroom.mp4",
-        "mode": "EXAM",
-        "roi": [
-            [
-                100,
-                100
-            ],
-            [
-                500,
-                100
-            ],
-            [
-                500,
-                400
-            ],
-            [
-                100,
-                400
-            ]
-        ]
-    },
-    {
         "id": "dd68ab57",
         "name": "test",
         "url": "storage\\model school-Channel 50.MP4",

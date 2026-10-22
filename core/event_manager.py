@@ -36,13 +36,15 @@ class EventManager:
         timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         screenshot_path = ""
         
-        # Save screenshot if frame is provided
+        import re
         if frame is not None:
             filename = f"incident_{cam_id}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
-            screenshot_path = os.path.join("storage", "screenshots", filename)
+            screenshot_path = re.sub(r'[\\/]+', '/', f"storage/screenshots/{filename}")
             os.makedirs(os.path.dirname(screenshot_path), exist_ok=True)
             cv2.imwrite(screenshot_path, frame)
             
+        video_path = re.sub(r'[\\/]+', '/', video_path) if video_path else ""
+        
         # For NVR fetch, log the exact UTC timestamp.
         nvr_playback_url = f"nvr_fetch://{cam_id}?time={timestamp.replace(' ', 'T')}Z"
         

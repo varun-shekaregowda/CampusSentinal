@@ -97,6 +97,10 @@
         
         .clip-item { display: flex; justify-content: space-between; background: rgba(11,12,16,0.5); padding: 15px; margin-bottom: 10px; border-radius: 8px; align-items: center; }
         
+        #incidentImage:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 20px rgba(102, 252, 241, 0.25);
+        }
     </style>
 </head>
 <body>
@@ -161,7 +165,7 @@
             <div style="display:flex; gap: 20px; align-items: flex-start;">
                 <div style="flex:1;">
                     <h3 style="margin-top:0; color:#45a29e;">High-Res Screenshot</h3>
-                    <img id="incidentImage" src="" style="width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); min-height: 200px; object-fit: cover;">
+                    <img id="incidentImage" src="" onclick="window.open(this.src, '_blank');" style="width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); min-height: 200px; object-fit: cover; cursor: pointer; transition: transform 0.2s;" title="Click to open full-screen in new tab">
                 </div>
                 <div style="flex:1;">
                     <h3 style="margin-top:0; color:#45a29e;">15-Second Auto-Clip</h3>
@@ -369,9 +373,9 @@
         function getMediaUrl(path) {
             if (!path) return "";
             path = path.replace(/\\/g, '/');
-            if (path.startsWith('storage/screenshots/')) return '/screenshots/' + path.substring(20);
-            if (path.startsWith('storage/clips/')) return '/clips/' + path.substring(14);
-            return path;
+            if (path.startsWith('/')) return path;
+            if (path.startsWith('storage/')) return '/' + path;
+            return '/' + path;
         }
 
         function openIncident(eventId) {
@@ -384,8 +388,8 @@
             const img = document.getElementById('incidentImage');
             const vid = document.getElementById('incidentVideo');
             
-            img.src = getMediaUrl(ev.screenshot);
-            vid.src = getMediaUrl(ev.video);
+            img.src = getMediaUrl(ev.screenshot || ev.screenshot_path);
+            vid.src = getMediaUrl(ev.video || ev.video_path);
             
             document.getElementById('incidentModal').style.display = 'flex';
             if(vid.src) {
