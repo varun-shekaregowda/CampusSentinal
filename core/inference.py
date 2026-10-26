@@ -16,10 +16,11 @@ class ExamMalpracticeAnalyzer:
       0: Nose, 1: Left Eye, 2: Right Eye, 3: Left Ear, 4: Right Ear,
       5: Left Shoulder, 6: Right Shoulder, 9: Left Wrist, 10: Right Wrist
     """
-    def __init__(self, fps=25, trigger_sec=1.8):
+    def __init__(self, fps=25, trigger_sec=2.5):
         self.fps = fps
         self.trigger_threshold = int(fps * trigger_sec)
         self.student_trackers = {} # track_id -> suspicion_counter
+        self.student_reasons = {}  # track_id -> list of reasons
 
     def analyze_student(self, track_id: int, keypoints: np.ndarray, confidences: np.ndarray, box=None) -> dict:
         if track_id not in self.student_trackers:
@@ -30,14 +31,15 @@ class ExamMalpracticeAnalyzer:
             x1, y1, x2, y2 = box
             width = max(1.0, float(x2 - x1))
             height = max(1.0, float(y2 - y1))
-            if height > 1.8 * width and height > 150:
+            if height > 1.7 * width and height > 130:
                 self.student_trackers[track_id] = 0
+                self.student_reasons.pop(track_id, None)
                 return {
                     "track_id": track_id,
                     "suspicion_level": 0.0,
                     "is_malpractice": False,
                     "is_invigilator": True,
-                    "reasons": ["Teacher/Squad (Ignored)"]
+                    "reasons": []
                 }
 
         nose_conf = confidences[0]
@@ -52,40 +54,49 @@ class ExamMalpracticeAnalyzer:
             r_sh = keypoints[6]
             shoulder_width = np.linalg.norm(l_sh - r_sh) + 1e-6
 
-            if nose_conf > 0.4:
+            # 180-Degree Turn (Facing Backwards)
+            if nose_conf < 0.2 and l_ear_conf < 0.2 and r_ear_conf < 0.2:
+                is_suspicious = True
+                reasons.append("Facing Backwards (180 Degree Turn)")
+            elif nose_conf > 0.4:
                 nose_x = keypoints[0][0]
                 if (l_ear_conf < 0.25 and r_ear_conf > 0.45) or (r_ear_conf < 0.25 and l_ear_conf > 0.45):
                     is_suspicious = True
-                    reasons.append("Lateral Head Turn (Side Profile)")
+                    reasons.append("Lateral Head Turn")
                 elif l_ear_conf > 0.35 and r_ear_conf > 0.35:
                     d_left = abs(nose_x - keypoints[3][0])
                     d_right = abs(nose_x - keypoints[4][0])
                     yaw_asymmetry = abs(d_left - d_right) / shoulder_width
-                    if yaw_asymmetry > 0.42:
+                    if yaw_asymmetry > 0.65:
                         is_suspicious = True
                         reasons.append("Sustained Head Yaw")
 
             for wrist_idx, side in [(9, "Left"), (10, "Right")]:
                 if confidences[wrist_idx] > 0.4:
                     wrist_x = keypoints[wrist_idx][0]
-                    if wrist_x < (min(l_sh[0], r_sh[0]) - 0.40 * shoulder_width) or \
-                       wrist_x > (max(l_sh[0], r_sh[0]) + 0.40 * shoulder_width):
+                    if wrist_x < (min(l_sh[0], r_sh[0]) - 0.85 * shoulder_width) or \
+                       wrist_x > (max(l_sh[0], r_sh[0]) + 0.85 * shoulder_width):
                         is_suspicious = True
-                        reasons.append(f"{side} Arm Extension / Reaching")
+                        reasons.append(f"{side} Arm Extension")
 
         if is_suspicious:
             self.student_trackers[track_id] += 1
+            if reasons:
+                self.student_reasons[track_id] = reasons
         else:
             self.student_trackers[track_id] = max(0, self.student_trackers[track_id] - 2)
+            if self.student_trackers[track_id] == 0:
+                self.student_reasons.pop(track_id, None)
 
         confirmed = self.student_trackers[track_id] >= self.trigger_threshold
+        current_reasons = reasons if reasons else self.student_reasons.get(track_id, [])
 
         return {
             "track_id": track_id,
             "suspicion_level": min(1.0, self.student_trackers[track_id] / self.trigger_threshold),
             "is_malpractice": confirmed,
             "is_invigilator": False,
-            "reasons": reasons if confirmed else []
+            "reasons": current_reasons
         }
 
 class CameraPipeline:
@@ -116,7 +127,7 @@ class CameraPipeline:
         fps_val = self.cap.get(cv2.CAP_PROP_FPS)
         if fps_val <= 0 or math.isnan(fps_val):
             fps_val = 25.0
-        self.exam_analyzer = ExamMalpracticeAnalyzer(fps=int(fps_val), trigger_sec=1.8)
+        self.exam_analyzer = ExamMalpracticeAnalyzer(fps=int(fps_val), trigger_sec=2.5)
         
         # State tracking
         self.suspect_registry = {}
@@ -127,7 +138,7 @@ class CameraPipeline:
         self.status_queue = status_queue
         self.paused = False
         self.speed_factor = 1.0
-        self.frame_buffer = collections.deque(maxlen=900) # Past 1 minute (approx 15fps * 60)
+        self.frame_buffer = collections.deque(maxlen=900) # 30 seconds at ~30 FPS
         self.is_capturing = False
         self.capture_frames_left = 0
         self.capture_writer = None
@@ -183,8 +194,9 @@ class CameraPipeline:
         return detections
 
     def process_exam(self, frame):
-        results = self.model.track(frame, persist=True, tracker="bytetrack.yaml", verbose=False, classes=[0], conf=0.25)[0]
+        results = self.model.track(frame, persist=True, tracker="bytetrack.yaml", verbose=False, classes=[0], conf=0.15, imgsz=736)[0]
         detections = {"boxes": [], "occupancy": len(results.boxes)}
+        new_incidents = []
         
         if results.boxes.id is not None and results.keypoints is not None:
             boxes = results.boxes.xyxy.cpu().numpy()
@@ -199,60 +211,66 @@ class CameraPipeline:
                 analysis = self.exam_analyzer.analyze_student(track_id, kpt, conf, box=(x1, y1, x2, y2))
                 
                 if analysis.get("is_invigilator"):
-                    color = (255, 0, 0) # Blue in BGR: Invigilator / Teacher (Ignored)
-                    label = f"ID: {track_id} - INVIGILATOR"
+                    # Invigilator: Ignore for malpractice, completely skip drawing
                     if track_id in self.suspect_registry:
                         del self.suspect_registry[track_id]
-                elif analysis["is_malpractice"] and track_id not in self.suspect_registry:
-                    reasons_str = ", ".join(analysis["reasons"]) if analysis["reasons"] else "MALPRACTICE"
-                    self.suspect_registry[track_id] = reasons_str
+                elif analysis["is_malpractice"] or track_id in self.suspect_registry:
+                    color = (0, 0, 255) # Red (0, 0, 255): Confirmed Malpractice
+                    reasons_list = analysis.get("reasons", [])
+                    reasons_str = ", ".join(reasons_list) if reasons_list else self.suspect_registry.get(track_id, "Malpractice")
+                    label = f"ID: {track_id} | {reasons_str}"
                     
-                    # Create annotated frame for high-res snapshot
-                    snapshot_frame = frame.copy()
-                    cv2.rectangle(snapshot_frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
-                    cv2.putText(snapshot_frame, f"ID: {track_id} - ALERT", (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-                    
-                    # Signal the Output Thread to do the 15-second auto capture
-                    self.internal_queue.put({
-                        "action": "auto_capture_15s",
-                        "track_id": track_id,
-                        "description": f"Student {track_id}: {reasons_str}",
-                        "frame": snapshot_frame
+                    if track_id not in self.suspect_registry:
+                        self.suspect_registry[track_id] = reasons_str
+                        new_incidents.append({
+                            "track_id": track_id,
+                            "description": f"Student {track_id}: {reasons_str}"
+                        })
+                    detections["boxes"].append({
+                        "coords": (x1, y1, x2, y2),
+                        "color": color,
+                        "text": label
                     })
-                    color = (0, 0, 255) # Red: Confirmed Malpractice
-                    label = f"ID: {track_id} - ALERT"
-                elif track_id in self.suspect_registry:
-                    color = (0, 0, 255) # Red: Confirmed Malpractice
-                    label = f"ID: {track_id} - ALERT"
                 elif analysis["suspicion_level"] > 0:
-                    color = (0, 255, 255) # Yellow: Suspicious / Debouncing
-                    label = f"ID: {track_id} ({int(analysis['suspicion_level'] * 100)}%)"
+                    color = (0, 255, 255) # Yellow (0, 255, 255): Suspicion Building
+                    suspicion_pct = int(analysis["suspicion_level"] * 100)
+                    reasons_list = analysis.get("reasons", [])
+                    reasons_str = ", ".join(reasons_list) if reasons_list else ""
+                    if reasons_str:
+                        label = f"ID: {track_id} ({suspicion_pct}%) | {reasons_str}"
+                    else:
+                        label = f"ID: {track_id} ({suspicion_pct}%)"
+                    detections["boxes"].append({
+                        "coords": (x1, y1, x2, y2),
+                        "color": color,
+                        "text": label
+                    })
                 else:
-                    color = (0, 255, 0) # Green: Normal
-                    label = f"ID: {track_id}"
-                    
-                detections["boxes"].append({
-                    "coords": (x1, y1, x2, y2),
-                    "color": color,
-                    "text": label,
-                    "keypoints": [(kpt[i][0], kpt[i][1], conf[i]) for i in range(len(kpt))]
-                })
+                    # Normal: completely skip drawing green bounding boxes
+                    pass
                 
-        # Draw visual telemetry (boxes, text, skeletons) directly onto frame
+        # Draw visual telemetry ONLY for Red (Malpractice) or Yellow (Suspicion Building)
         for b in detections["boxes"]:
             bx1, by1, bx2, by2 = b["coords"]
             bcolor = b["color"]
             btext = b["text"]
             cv2.rectangle(frame, (bx1, by1), (bx2, by2), bcolor, 2)
-            cv2.putText(frame, btext, (bx1, by1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, bcolor, 2)
-            for kx, ky, kc in b.get("keypoints", []):
-                if kc > 0.4:
-                    cv2.circle(frame, (int(kx), int(ky)), 3, bcolor, -1)
+            cv2.putText(frame, btext, (bx1, max(20, by1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, bcolor, 2)
+            # 17 skeleton keypoints rendering removed to save CPU cycles and clean up video
                     
         cv2.putText(frame, f"OCCUPANCY: {detections.get('occupancy', 0)}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
         
         # Append annotated frame (with burned visual telemetry) to rolling ring buffer for evidence clips
         self.frame_buffer.append(frame.copy())
+        
+        # Signal output thread for any new incidents with high-res annotated frame
+        for inc in new_incidents:
+            self.internal_queue.put({
+                "action": "auto_capture_30s",
+                "track_id": inc["track_id"],
+                "description": inc["description"],
+                "frame": frame.copy()
+            })
                 
         return detections
 
@@ -272,6 +290,35 @@ class CameraPipeline:
             self.latest_detections = detections
             # Slight yield to avoid 100% core pinning constantly
             time.sleep(0.001)
+
+    def stop_and_finalize_capture(self, current_frame=None):
+        """Safely flushes and closes any active manual capture VideoWriter, writing the MP4 moov atom."""
+        if self.is_capturing or self.capture_writer is not None:
+            self.is_capturing = False
+            writer = self.capture_writer
+            self.capture_writer = None
+            if writer:
+                try:
+                    writer.release()
+                except Exception as e:
+                    print("[CampusSentinel] Error releasing capture writer:", e)
+            if self.capture_filename:
+                db_vid_path = self.capture_filename.replace('\\', '/')
+                thumb = current_frame if current_frame is not None else self.current_frame
+                alert = event_manager.log_event(
+                    self.cam_id, 
+                    "VIDEO_CAPTURE", 
+                    f"Saved manual clip to {db_vid_path}", 
+                    frame=thumb, 
+                    video_path=db_vid_path
+                )
+                if hasattr(self, 'alert_queue') and self.alert_queue:
+                    try:
+                        self.alert_queue.put(alert)
+                    except:
+                        pass
+                print(f"[CampusSentinel] Finalized manual recording: {db_vid_path}")
+                self.capture_filename = ""
 
     def run(self, frame_queue):
         """Runs continuously in a separate process, outputs annotated frames to a queue for the UI."""
@@ -301,8 +348,11 @@ class CameraPipeline:
                             del self.suspect_registry[tid]
                         if tid in self.head_turn_buffers:
                             self.head_turn_buffers[tid] = 0
-                        if hasattr(self, 'exam_analyzer') and tid in self.exam_analyzer.student_trackers:
-                            self.exam_analyzer.student_trackers[tid] = 0
+                        if hasattr(self, 'exam_analyzer'):
+                            if tid in self.exam_analyzer.student_trackers:
+                                self.exam_analyzer.student_trackers[tid] = 0
+                            if hasattr(self.exam_analyzer, 'student_reasons') and tid in self.exam_analyzer.student_reasons:
+                                del self.exam_analyzer.student_reasons[tid]
                     elif action == "pause":
                         self.paused = True
                     elif action == "play":
@@ -313,15 +363,18 @@ class CameraPipeline:
                     elif action == "speed":
                         self.speed_factor = cmd.get("value")
                     elif action == "capture":
-                        if not self.is_capturing:
+                        if self.is_capturing:
+                            # User clicked again: stop recording early and finalize immediately
+                            self.stop_and_finalize_capture(current_frame=self.current_frame)
+                        else:
                             self.is_capturing = True
-                            self.capture_frames_left = 900
+                            w_fps = self.cap.get(cv2.CAP_PROP_FPS)
+                            if w_fps <= 0 or math.isnan(w_fps): w_fps = 30.0
+                            
                             ts = int(time.time())
                             clip_mp4 = f"storage/clips/clip_{self.cam_id}_{ts}.mp4"
                             clip_webm = f"storage/clips/clip_{self.cam_id}_{ts}.webm"
                             os.makedirs("storage/clips", exist_ok=True)
-                            w_fps = self.cap.get(cv2.CAP_PROP_FPS)
-                            if w_fps == 0 or math.isnan(w_fps): w_fps = 15.0
                             
                             fourcc = cv2.VideoWriter_fourcc(*'avc1')
                             self.capture_writer = cv2.VideoWriter(clip_mp4, fourcc, w_fps, (1280, 720))
@@ -332,18 +385,32 @@ class CameraPipeline:
                                 self.capture_filename = clip_webm
                                 
                             self.capture_filename = self.capture_filename.replace('\\', '/')
-                            # Dump history buffer
-                            for b_frame in list(self.frame_buffer):
+                            
+                            # Prepend recent buffer history (up to 300 frames ~15s to keep write instant without stutter)
+                            buf = list(self.frame_buffer)
+                            recent_buf = buf[-300:] if len(buf) > 300 else buf
+                            for b_frame in recent_buf:
                                 self.capture_writer.write(b_frame)
+                                
+                            # 2 minutes = 120 seconds * w_fps (e.g. 2400 frames at 20fps)
+                            total_target = int(120 * w_fps)
+                            remaining = max(total_target - len(recent_buf), int(30 * w_fps))
+                            self.capture_frames_left = remaining
+                            self.capture_total_frames = remaining
+                            print(f"[CampusSentinel] Started manual recording: {self.capture_filename} ({remaining} frames remaining)")
+                    elif action == "stop_capture":
+                        self.stop_and_finalize_capture(current_frame=self.current_frame)
+                    elif action == "shutdown":
+                        break
                 except Exception as e:
                     print(e)
                     
             if hasattr(self, 'internal_queue') and not self.internal_queue.empty():
                 try:
                     cmd = self.internal_queue.get_nowait()
-                    if cmd["action"] == "auto_capture_15s":
-                        # Pull up to 450 frames (15s at 30fps)
-                        clip_frames = list(self.frame_buffer)[-450:]
+                    if cmd["action"] in ("auto_capture_30s", "auto_capture_15s"):
+                        # Pull full 30 seconds from buffer (up to 900 frames at ~30 FPS)
+                        clip_frames = list(self.frame_buffer)[-900:]
                         
                         def write_incident(frames, frame_img, track_id, desc):
                             ts = int(time.time())
@@ -352,9 +419,9 @@ class CameraPipeline:
                             os.makedirs("storage/clips", exist_ok=True)
                             
                             w_fps = self.cap.get(cv2.CAP_PROP_FPS)
-                            if w_fps == 0 or math.isnan(w_fps): w_fps = 30.0
+                            if w_fps <= 0 or math.isnan(w_fps): w_fps = 30.0
                             
-                            # Try avc1 first, fallback to vp09 .webm if avc1 fails to open
+                            # CRITICAL CODEC FIX: Try avc1 first with .mp4 for HTML5 web browser playback, fallback to vp09 with .webm
                             fourcc = cv2.VideoWriter_fourcc(*'avc1')
                             writer = cv2.VideoWriter(vid_filename_mp4, fourcc, w_fps, (1280, 720))
                             vid_filename = vid_filename_mp4
@@ -384,10 +451,21 @@ class CameraPipeline:
                 if self.loop_counter % 5 == 0: # Update every 5 loops
                     frame_idx = self.cap.get(cv2.CAP_PROP_POS_FRAMES)
                     total_frames = self.cap.get(cv2.CAP_PROP_FRAME_COUNT)
+                    w_fps = self.cap.get(cv2.CAP_PROP_FPS)
+                    if w_fps <= 0 or math.isnan(w_fps): w_fps = 20.0
                     try:
                         while not self.status_queue.empty():
                             self.status_queue.get_nowait()
-                        self.status_queue.put({"frame": frame_idx, "total": total_frames, "paused": self.paused, "speed": self.speed_factor})
+                        self.status_queue.put({
+                            "frame": frame_idx, 
+                            "total": total_frames, 
+                            "paused": self.paused, 
+                            "speed": self.speed_factor,
+                            "is_capturing": self.is_capturing,
+                            "capture_left": max(0, self.capture_frames_left),
+                            "capture_total": getattr(self, 'capture_total_frames', 2400),
+                            "fps": int(w_fps)
+                        })
                     except: pass
             
             if self.paused:
@@ -423,7 +501,7 @@ class CameraPipeline:
                 color = b["color"]
                 text = b["text"]
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                cv2.putText(frame, text, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+                cv2.putText(frame, text, (x1, max(20, y1 - 5)), cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 2)
                 
             cv2.putText(frame, f"OCCUPANCY: {dets.get('occupancy', 0)}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
@@ -436,12 +514,7 @@ class CameraPipeline:
                     self.capture_writer.write(frame)
                 self.capture_frames_left -= 1
                 if self.capture_frames_left <= 0:
-                    self.is_capturing = False
-                    if self.capture_writer:
-                        self.capture_writer.release()
-                        self.capture_writer = None
-                    alert = event_manager.log_event(self.cam_id, "VIDEO_CAPTURE", f"Saved 2-minute clip to {self.capture_filename}")
-                    self.alert_queue.put(alert)
+                    self.stop_and_finalize_capture(current_frame=frame)
                 
             # Keep the queue small so it doesn't build up latency
             if frame_queue.full():
@@ -458,8 +531,10 @@ class CameraPipeline:
                 if sleep_time > 0:
                     time.sleep(sleep_time)
             
+        self.stop_and_finalize_capture()
         self.inference_running = False
-        self.cap.release()
+        if hasattr(self, 'cap') and self.cap:
+            self.cap.release()
 
 def run_camera_process(cam_config, frame_queue, alert_queue, command_queue=None, status_queue=None):
     pipeline = CameraPipeline(cam_config, alert_queue, command_queue, status_queue)

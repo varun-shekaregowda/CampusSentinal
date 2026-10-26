@@ -1,15 +1,15 @@
 [
     {
-        "id": "035065b6",
-        "name": "Exam Hall Front",
-        "url": "0",
-        "mode": "CLASSROOM",
-        "roi": []
-    },
-    {
         "id": "dd68ab57",
         "name": "test",
         "url": "storage\\model school-Channel 50.MP4",
+        "mode": "EXAM",
+        "roi": []
+    },
+    {
+        "id": "fa77b7ae",
+        "name": "test 2",
+        "url": "storage\\model school-Channel 51.MP4",
         "mode": "EXAM",
         "roi": []
     }

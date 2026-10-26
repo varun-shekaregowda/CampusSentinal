@@ -64,8 +64,15 @@ def start_camera_process(cam):
 
 def stop_camera_process(cam_id):
     if cam_id in active_processes:
-        active_processes[cam_id].terminate()
-        active_processes[cam_id].join()
+        if cam_id in command_queues:
+            try:
+                command_queues[cam_id].put({"action": "shutdown"})
+            except:
+                pass
+        active_processes[cam_id].join(timeout=1.0)
+        if active_processes[cam_id].is_alive():
+            active_processes[cam_id].terminate()
+            active_processes[cam_id].join()
         del active_processes[cam_id]
         print(f"Stopped Inference Process for {cam_id}")
     if cam_id in frame_queues:
@@ -168,25 +175,26 @@ async def api_camera_control(cam_id: str, request: Request):
 
 @app.get("/api/cameras/{cam_id}/status")
 async def api_camera_status(cam_id: str):
+    default_status = {"frame": 0, "total": 0, "paused": False, "speed": 1.0, "is_capturing": False, "capture_left": 0}
     if cam_id not in status_queues:
         return {"error": "Camera not found"}
     sq = status_queues[cam_id]
     if sq.empty():
-        return {"frame": 0, "total": 0, "paused": False, "speed": 1.0}
+        return default_status
     try:
         # Get the latest status in queue
         status = None
         while not sq.empty():
             status = sq.get_nowait()
-        return status
+        return status or default_status
     except:
-        return {"frame": 0, "total": 0, "paused": False, "speed": 1.0}
+        return default_status
 
 @app.get("/api/clips")
 async def api_list_clips():
     clips_dir = os.path.join("storage", "clips")
     os.makedirs(clips_dir, exist_ok=True)
-    files = [f for f in os.listdir(clips_dir) if f.endswith(".mp4")]
+    files = [f for f in os.listdir(clips_dir) if f.endswith(".mp4") or f.endswith(".webm")]
     # sort by creation time descending
     files.sort(key=lambda x: os.path.getmtime(os.path.join(clips_dir, x)), reverse=True)
     return [{"filename": f, "url": f"/clips/{f}"} for f in files]
@@ -197,7 +205,8 @@ async def get_clip(filename: str):
     file_path = os.path.join("storage", "clips", filename)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404)
-    return FileResponse(file_path, media_type="video/mp4")
+    media_type = "video/webm" if filename.endswith(".webm") else "video/mp4"
+    return FileResponse(file_path, media_type=media_type)
 
 # --- Video Streaming ---
 def encode_frame(frame):

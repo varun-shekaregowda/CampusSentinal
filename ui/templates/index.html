@@ -31,29 +31,46 @@
         
         .dashboard { display: flex; height: calc(100vh - 65px); }
         
-        .video-grid { 
-            flex: 3; 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); 
-            gap: 25px; 
-            padding: 30px; 
-            overflow-y: auto; 
+        .video-grid {
+            flex: 3;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-auto-rows: max-content;
+            gap: 1rem;
+            padding: 20px;
+            overflow-y: auto;
         }
         
-        .camera-card { 
-            background: rgba(11, 12, 16, 0.6);
-            backdrop-filter: blur(8px);
-            border-radius: 12px; 
-            overflow: hidden; 
-            border: 1px solid rgba(102, 252, 241, 0.1); 
-            position: relative; 
-            transition: all 0.4s ease; 
+        .camera-card {
+            background: #000;
+            aspect-ratio: 16 / 9;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #333;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.4s ease;
         }
         .camera-card.enlarged { 
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; 
-            border-radius: 0; margin: 0; padding: 0; border: none;
+            position: fixed; top: 65px; left: 0; width: 100vw; height: 85vh; max-height: 85vh; z-index: 9999; 
+            border-radius: 0; margin: 0; padding: 0; border: none; aspect-ratio: unset;
         }
-        .camera-card img { width: 100%; height: 100%; object-fit: cover; }
+        .rec-badge {
+            position: absolute; top: 12px; right: 50px;
+            background: #e74c3c; color: #fff; font-size: 11px;
+            font-weight: 700; padding: 3px 8px; border-radius: 4px;
+            z-index: 10; letter-spacing: 1px; display: none;
+            box-shadow: 0 0 10px rgba(231, 76, 60, 0.6);
+            animation: blinkRec 1s infinite;
+        }
+        @keyframes blinkRec { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+        .camera-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain; /* Prevents squishing/stretching */
+        }
         
         .camera-info { 
             position: absolute; top: 0; left: 0; right: 0; 
@@ -108,7 +125,7 @@
     <div class="header">
         <h1>🛡️ Campus Sentinel NVR</h1>
         <div style="display:flex; gap: 15px; align-items:center;">
-            <span id="ws-status">Connecting...</span>
+            <span id="connection-status" style="font-weight:600; font-size:14px; color:#eab308;">🟡 Connecting...</span>
             <button class="primary" onclick="openClips()">🎬 Saved Clips</button>
             <button class="primary" onclick="openSettings()">⚙️ Config</button>
         </div>
@@ -165,10 +182,10 @@
             <div style="display:flex; gap: 20px; align-items: flex-start;">
                 <div style="flex:1;">
                     <h3 style="margin-top:0; color:#45a29e;">High-Res Screenshot</h3>
-                    <img id="incidentImage" src="" onclick="window.open(this.src, '_blank');" style="width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); min-height: 200px; object-fit: cover; cursor: pointer; transition: transform 0.2s;" title="Click to open full-screen in new tab">
+                    <img id="incidentImage" src="" onclick="window.open(this.src, '_blank');" style="cursor: pointer; transition: transform 0.2s; width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); min-height: 200px; object-fit: cover;" title="Click to open full-screen in new tab">
                 </div>
                 <div style="flex:1;">
-                    <h3 style="margin-top:0; color:#45a29e;">15-Second Auto-Clip</h3>
+                    <h3 style="margin-top:0; color:#45a29e;">30-Second Auto-Clip</h3>
                     <video id="incidentVideo" controls style="width: 100%; border-radius: 8px; border: 1px solid #ff4757; background:#000; min-height: 200px;"></video>
                 </div>
             </div>
@@ -191,11 +208,12 @@
                 camsState[cam.id] = { total: 0 };
                 grid.innerHTML += `
                 <div class="camera-card" id="card-${cam.id}">
+                    <div class="rec-badge" id="rec-badge-${cam.id}">● REC</div>
                     <div class="camera-info">
                         <span>${cam.name}</span>
                         <button onclick="document.getElementById('card-${cam.id}').classList.toggle('enlarged')">⛶</button>
                     </div>
-                    <img src="/video_feed/${cam.id}" style="width:100%; height:100%; object-fit:cover;">
+                    <img src="/video_feed/${cam.id}" style="width:100%; height:100%; object-fit:contain;">
                     <div class="camera-controls">
                         <div class="scrubber-container" id="scrubber-container-${cam.id}" style="display:none;">
                             <span class="scrubber-time" id="time-${cam.id}">00:00</span>
@@ -206,12 +224,24 @@
                             <button id="speed-1-${cam.id}" style="display:none;" onclick="controlCam('${cam.id}', 'speed', 1)">1x</button>
                             <button id="speed-2-${cam.id}" style="display:none;" onclick="controlCam('${cam.id}', 'speed', 2)">⏩ 2x</button>
                             <button id="speed-4-${cam.id}" style="display:none;" onclick="controlCam('${cam.id}', 'speed', 4)">⏩ 4x</button>
-                            <button class="primary" onclick="controlCam('${cam.id}', 'capture')">🔴 Record 2-Min Clip</button>
+                            <button id="btn-record-${cam.id}" class="primary" onclick="toggleRecord('${cam.id}')">🔴 Record 2-Min Clip</button>
                         </div>
                     </div>
                 </div>`;
             });
             renderSettingsList(cameras);
+        }
+
+        async function toggleRecord(camId) {
+            const btn = document.getElementById(`btn-record-${camId}`);
+            if (btn) {
+                if (camsState[camId]?.is_capturing) {
+                    btn.innerText = '⏳ Saving Clip...';
+                } else {
+                    btn.innerText = '⏳ Initializing...';
+                }
+            }
+            await controlCam(camId, 'capture');
         }
 
         async function controlCam(camId, action, value=null) {
@@ -273,6 +303,31 @@
                             document.getElementById(`time-${camId}`).innerText = `${m}:${s}`;
                         }
                     }
+
+                    // Recording status telemetry
+                    const recBtn = document.getElementById(`btn-record-${camId}`);
+                    const recBadge = document.getElementById(`rec-badge-${camId}`);
+                    camsState[camId].is_capturing = !!status.is_capturing;
+                    
+                    if (status.is_capturing) {
+                        const camFps = status.fps || 20;
+                        const secsLeft = Math.ceil((status.capture_left || 0) / camFps);
+                        const mins = Math.floor(secsLeft / 60);
+                        const secs = String(secsLeft % 60).padStart(2, '0');
+                        if (recBtn) {
+                            recBtn.style.background = '#e74c3c';
+                            recBtn.style.color = '#fff';
+                            recBtn.innerText = `⏹ Stop Rec (${mins}:${secs})`;
+                        }
+                        if (recBadge) recBadge.style.display = 'block';
+                    } else {
+                        if (recBtn && !recBtn.innerText.includes('Initializing') && !recBtn.innerText.includes('Saving')) {
+                            recBtn.style.background = '';
+                            recBtn.style.color = '';
+                            recBtn.innerText = `🔴 Record 2-Min Clip`;
+                        }
+                        if (recBadge) recBadge.style.display = 'none';
+                    }
                 } catch(e) {}
             }
         }, 1000);
@@ -282,10 +337,19 @@
             const res = await fetch('/api/clips');
             const clips = await res.json();
             const list = document.getElementById('clipsList');
+            if (!clips || clips.length === 0) {
+                list.innerHTML = `<p style="color:#aaa; text-align:center; padding:20px;">No recorded clips found.</p>`;
+                return;
+            }
             list.innerHTML = clips.map(c => `
-                <div class="clip-item">
-                    <span>${c.filename}</span>
-                    <button class="primary" onclick="playClip('${c.url}')">▶ Play</button>
+                <div class="clip-item" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; margin-bottom:8px; background:rgba(255,255,255,0.05); border-radius:6px; border:1px solid rgba(255,255,255,0.1);">
+                    <div>
+                        <span style="font-weight:600; color:${c.filename.startsWith('clip_') ? '#e74c3c' : '#45a29e'};">
+                            ${c.filename.startsWith('clip_') ? '🔴 [Manual 2-Min]' : '⚠️ [Incident 30s]'}
+                        </span>
+                        <span style="margin-left:8px; color:#ddd; font-size:14px;">${c.filename}</span>
+                    </div>
+                    <button class="primary" onclick="playClip('${c.url}')" style="padding:6px 14px;">▶ Play</button>
                 </div>
             `).join('');
         }
@@ -295,7 +359,8 @@
             const player = document.getElementById('clipPlayer');
             container.style.display = 'block';
             player.src = url;
-            player.play();
+            player.load();
+            player.play().catch(e => console.log('Autoplay blocked or load error:', e));
         }
 
         function toggleSourceInput() {
@@ -421,11 +486,25 @@
         const wsUrl = (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + window.location.host + '/ws/alerts';
         function connect() {
             const ws = new WebSocket(wsUrl);
+            ws.onopen = function() {
+                const el = document.getElementById('connection-status') || document.getElementById('ws-status');
+                if (el) {
+                    el.innerText = '🟢 Connected';
+                    el.style.color = '#4ade80';
+                }
+            };
             ws.onmessage = (e) => {
                 const alert = JSON.parse(e.data);
                 appendAlertHtml(alert, true);
             };
-            ws.onclose = () => setTimeout(connect, 2000);
+            ws.onclose = () => {
+                const el = document.getElementById('connection-status') || document.getElementById('ws-status');
+                if (el) {
+                    el.innerText = '🔴 Disconnected';
+                    el.style.color = '#ef4444';
+                }
+                setTimeout(connect, 2000);
+            };
         }
 
         loadCameras();
