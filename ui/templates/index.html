@@ -3,116 +3,494 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Campus Sentinel - Enterprise NVR Dashboard</title>
+    <title>Campus Sentinel - Unified Cyber-Dark Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-body: #08090d;
+            --bg-surface: #111620;
+            --bg-card: rgba(18, 25, 36, 0.75);
+            --border-subtle: rgba(102, 252, 241, 0.12);
+            --accent-cyan: #66fcf1;
+            --accent-teal: #45a29e;
+            --alert-red: #ff4757;
+            --alert-yellow: #f59e0b;
+            --alert-green: #2ed573;
+            --text-primary: #f1f2f6;
+            --text-muted: #8c9ba5;
+        }
+
+        * { box-sizing: border-box; }
+
         body { 
-            font-family: 'Outfit', sans-serif; 
-            background: linear-gradient(135deg, #0b0c10 0%, #1f2833 100%);
-            color: #c5c6c7; 
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif; 
+            background: radial-gradient(circle at 15% 15%, #141b27 0%, #08090d 100%);
+            color: var(--text-primary); 
             margin: 0; 
             padding: 0; 
             overflow: hidden;
+            -webkit-font-smoothing: antialiased;
         }
         
+        /* Header */
         .header { 
-            background: rgba(31, 40, 51, 0.6); 
-            backdrop-filter: blur(10px);
-            padding: 15px 40px; 
+            background: rgba(17, 22, 32, 0.75); 
+            backdrop-filter: blur(14px);
+            padding: 12px 30px; 
             display: flex; 
             justify-content: space-between; 
             align-items: center; 
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05); 
-            z-index: 10;
+            border-bottom: 1px solid var(--border-subtle); 
+            z-index: 100;
         }
-        .header h1 { margin: 0; font-size: 26px; color: #66fcf1; font-weight: 700;}
+        .header-title-box { display: flex; align-items: center; gap: 12px; }
+        .header h1 { 
+            margin: 0; 
+            font-size: 22px; 
+            color: var(--accent-cyan); 
+            font-weight: 700; 
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .header-subtitle {
+            font-size: 11px;
+            color: var(--accent-teal);
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: rgba(69, 162, 158, 0.15);
+            border: 1px solid rgba(69, 162, 158, 0.3);
+        }
         
-        .dashboard { display: flex; height: calc(100vh - 65px); }
+        .dashboard { display: flex; height: calc(100vh - 61px); }
         
+        /* Video Grid */
         .video-grid {
             flex: 3;
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             grid-auto-rows: max-content;
-            gap: 1rem;
+            gap: 1.2rem;
             padding: 20px;
             overflow-y: auto;
         }
         
+        /* Camera Card & Dynamic Borders */
         .camera-card {
             background: #000;
             aspect-ratio: 16 / 9;
             position: relative;
             overflow: hidden;
-            border: 1px solid #333;
-            border-radius: 8px;
+            border: 2px solid #232c38;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.4s ease;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
         }
+        
+        /* Pulse and Dynamic Border Animations (Phase 4) */
+        @keyframes pulseRedAlert {
+            0%, 100% {
+                border-color: #ff4757;
+                box-shadow: 0 0 10px rgba(255, 71, 87, 0.4), inset 0 0 12px rgba(255, 71, 87, 0.15);
+            }
+            50% {
+                border-color: #ff6b81;
+                box-shadow: 0 0 25px rgba(255, 71, 87, 0.9), inset 0 0 22px rgba(255, 71, 87, 0.35);
+            }
+        }
+
+        @keyframes pulseYellowAlert {
+            0%, 100% {
+                border-color: #f59e0b;
+                box-shadow: 0 0 8px rgba(245, 158, 11, 0.35), inset 0 0 8px rgba(245, 158, 11, 0.15);
+            }
+            50% {
+                border-color: #fbbf24;
+                box-shadow: 0 0 20px rgba(245, 158, 11, 0.85), inset 0 0 16px rgba(245, 158, 11, 0.3);
+            }
+        }
+
+        .camera-card.alert-green {
+            border-color: #2ed573;
+            box-shadow: 0 0 12px rgba(46, 213, 115, 0.25);
+        }
+
+        .camera-card.alert-yellow {
+            animation: pulseYellowAlert 1.6s infinite ease-in-out;
+        }
+
+        .camera-card.alert-red {
+            animation: pulseRedAlert 1.0s infinite ease-in-out;
+        }
+
         .camera-card.enlarged { 
-            position: fixed; top: 65px; left: 0; width: 100vw; height: 85vh; max-height: 85vh; z-index: 9999; 
+            position: fixed; top: 61px; left: 0; width: 100vw; height: calc(100vh - 61px); max-height: none; z-index: 9999; 
             border-radius: 0; margin: 0; padding: 0; border: none; aspect-ratio: unset;
         }
+
+        .camera-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        /* Camera Info Header */
+        .camera-info { 
+            position: absolute; top: 0; left: 0; right: 0; 
+            background: linear-gradient(180deg, rgba(8, 9, 13, 0.92) 0%, rgba(8, 9, 13, 0.6) 70%, transparent 100%);
+            padding: 12px 16px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            z-index: 10;
+        }
+        .cam-name-box { display: flex; align-items: center; gap: 8px; }
+        .cam-name-text { font-weight: 700; font-size: 14px; color: #fff; letter-spacing: 0.3px; }
+        
+        /* Camera Mode & Status Badges */
+        .cam-mode-tag {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            padding: 2px 7px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+        .mode-EXAM, .mode-EXAM_FRONT, .mode-EXAM_REAR { background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); }
+        .mode-SECURITY { background: rgba(255, 71, 87, 0.2); color: #ff6b81; border: 1px solid rgba(255, 71, 87, 0.4); }
+        .mode-ENERGY { background: rgba(6, 182, 212, 0.2); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.4); }
+        .mode-CLASSROOM { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
+
+        .cam-telemetry-badge {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: rgba(11, 16, 26, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
         .rec-badge {
-            position: absolute; top: 12px; right: 50px;
-            background: #e74c3c; color: #fff; font-size: 11px;
+            position: absolute; top: 12px; right: 80px;
+            background: #e74c3c; color: #fff; font-size: 10px;
             font-weight: 700; padding: 3px 8px; border-radius: 4px;
-            z-index: 10; letter-spacing: 1px; display: none;
+            z-index: 10; letter-spacing: 0.8px; display: none;
             box-shadow: 0 0 10px rgba(231, 76, 60, 0.6);
             animation: blinkRec 1s infinite;
         }
         @keyframes blinkRec { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
-        .camera-card img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain; /* Prevents squishing/stretching */
-        }
-        
-        .camera-info { 
-            position: absolute; top: 0; left: 0; right: 0; 
-            background: linear-gradient(180deg, rgba(11,12,16,0.9) 0%, rgba(11,12,16,0) 100%);
-            padding: 15px; display: flex; justify-content: space-between; align-items: center;
-        }
-        
+
+        /* Camera Controls */
         .camera-controls {
-            position: absolute; bottom: -60px; left: 0; right: 0;
-            background: rgba(11, 12, 16, 0.8); backdrop-filter: blur(5px);
-            padding: 10px; display: flex; flex-direction: column; gap: 5px;
-            transition: bottom 0.3s ease;
+            position: absolute; bottom: -70px; left: 0; right: 0;
+            background: rgba(8, 9, 13, 0.88); backdrop-filter: blur(8px);
+            padding: 10px 14px; display: flex; flex-direction: column; gap: 6px;
+            transition: bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 10;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
         }
         .camera-card:hover .camera-controls { bottom: 0; }
         
-        .control-buttons { display: flex; gap: 10px; justify-content: center; align-items: center; }
-        .control-buttons button { padding: 5px 10px; font-size: 12px; }
+        .control-buttons { display: flex; gap: 8px; justify-content: center; align-items: center; }
+        .control-buttons button { padding: 5px 12px; font-size: 11px; }
         .scrubber-container { display: flex; gap: 10px; align-items: center; width: 100%; }
-        .scrubber-container input { flex: 1; }
-        .scrubber-time { font-size: 12px; color: #66fcf1; font-variant-numeric: tabular-nums;}
+        .scrubber-container input { flex: 1; accent-color: var(--accent-cyan); cursor: pointer; }
+        .scrubber-time { font-size: 11px; color: var(--accent-cyan); font-variant-numeric: tabular-nums; font-weight: 600; }
         
+        /* Sidebar & Energy HUD */
         .sidebar { 
-            flex: 1; background: rgba(31, 40, 51, 0.4); border-left: 1px solid rgba(255, 255, 255, 0.05); 
-            display: flex; flex-direction: column; 
+            flex: 1; 
+            background: rgba(14, 19, 28, 0.65); 
+            backdrop-filter: blur(16px);
+            border-left: 1px solid var(--border-subtle); 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden;
         }
-        .sidebar-header { padding: 20px; background: rgba(11, 12, 16, 0.5); font-weight: 700; color: #45a29e; }
-        .alerts-container { flex: 1; overflow-y: auto; padding: 20px; }
-        .alert-item { background: rgba(11, 12, 16, 0.6); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #ff4757; }
         
-        button { background-color: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;}
-        button:hover { background-color: rgba(255,255,255,0.2); }
-        button.primary { background: linear-gradient(45deg, #45a29e, #66fcf1); color: #0b0c10; border: none;}
-        button.primary:hover { transform: translateY(-2px); }
+        /* Energy HUD Card (Phase 4) */
+        .energy-hud {
+            padding: 18px 20px 14px 20px;
+            background: rgba(17, 24, 38, 0.7);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .hud-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .hud-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--alert-green);
+            box-shadow: 0 0 8px var(--alert-green);
+            animation: liveDotPulse 1.4s infinite;
+        }
+        @keyframes liveDotPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.3; transform: scale(0.85); } }
+
+        .hud-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .hud-stat-box {
+            background: rgba(10, 14, 22, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            transition: all 0.2s ease;
+        }
+        .hud-stat-box:hover {
+            border-color: rgba(102, 252, 241, 0.3);
+            background: rgba(10, 14, 22, 0.85);
+        }
+
+        .hud-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .hud-value {
+            font-size: 17px;
+            font-weight: 700;
+            color: #fff;
+            font-variant-numeric: tabular-nums;
+            display: flex;
+            align-items: baseline;
+            gap: 4px;
+        }
+        .hud-sub {
+            font-size: 10px;
+            color: var(--accent-teal);
+            font-weight: 500;
+        }
+
+        .spinning-fan {
+            display: inline-block;
+            animation: fanSpin 0.7s infinite linear;
+        }
+        @keyframes fanSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .relay-pill {
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .relay-pill.online {
+            background: rgba(46, 213, 115, 0.15);
+            color: #2ed573;
+            border: 1px solid rgba(46, 213, 115, 0.4);
+        }
+        .relay-pill.cutoff {
+            background: rgba(255, 71, 87, 0.25);
+            color: #ff4757;
+            border: 1px solid rgba(255, 71, 87, 0.6);
+            animation: blinkRec 1.2s infinite;
+        }
+
+        .hud-action-banner {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            background: rgba(46, 213, 115, 0.12);
+            border: 1px solid rgba(46, 213, 115, 0.25);
+            color: #2ed573;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.3s ease;
+        }
+        .hud-action-banner.countdown {
+            background: rgba(245, 158, 11, 0.15);
+            border-color: rgba(245, 158, 11, 0.4);
+            color: #fbbf24;
+        }
+        .hud-action-banner.cutoff {
+            background: rgba(255, 71, 87, 0.18);
+            border-color: rgba(255, 71, 87, 0.5);
+            color: #ff6b81;
+        }
+
+        /* Sidebar Alerts Section */
+        .sidebar-nav {
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(10, 14, 22, 0.4);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .sidebar-title { font-weight: 700; font-size: 13px; color: var(--accent-teal); letter-spacing: 0.5px; }
+
+        .filter-group { display: flex; gap: 4px; }
+        .filter-pill {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-muted);
+            font-size: 10px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-pill.active, .filter-pill:hover {
+            background: rgba(102, 252, 241, 0.15);
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        .alerts-container { 
+            flex: 1; 
+            overflow-y: auto; 
+            padding: 15px 20px; 
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* Color-Coded Incident Cards */
+        .alert-item { 
+            background: rgba(17, 24, 38, 0.65); 
+            backdrop-filter: blur(8px);
+            padding: 12px 14px; 
+            border-radius: 8px; 
+            border-left: 4px solid #ff4757;
+            border-top: 1px solid rgba(255, 255, 255, 0.03);
+            border-right: 1px solid rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            cursor: pointer; 
+            transition: all 0.25s ease; 
+        }
+        .alert-item:hover { 
+            background: rgba(25, 36, 54, 0.85); 
+            transform: translateX(3px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        .alert-item.alert-danger { border-left-color: var(--alert-red); }
+        .alert-item.alert-warning { border-left-color: var(--alert-yellow); }
+        .alert-item.alert-success { border-left-color: var(--alert-green); }
+
+        .alert-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .alert-tag {
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 3px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .tag-danger { background: rgba(255, 71, 87, 0.25); color: #ff6b81; }
+        .tag-warning { background: rgba(245, 158, 11, 0.25); color: #fbbf24; }
+        .tag-success { background: rgba(46, 213, 115, 0.25); color: #2ed573; }
+        .alert-time { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+        .alert-desc { font-size: 13px; color: #e2e8f0; line-height: 1.4; }
+
+        /* Buttons */
+        button { 
+            background-color: rgba(255,255,255,0.08); 
+            color: white; 
+            border: 1px solid rgba(255,255,255,0.18); 
+            padding: 7px 14px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-weight: 600;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+        button:hover { background-color: rgba(255,255,255,0.18); }
+        button.primary { 
+            background: linear-gradient(135deg, #45a29e 0%, #66fcf1 100%); 
+            color: #0b0c10; 
+            border: none;
+            box-shadow: 0 2px 10px rgba(102, 252, 241, 0.25);
+        }
+        button.primary:hover { 
+            transform: translateY(-1px); 
+            box-shadow: 0 4px 16px rgba(102, 252, 241, 0.4);
+        }
+        button.danger {
+            background-color: rgba(255, 71, 87, 0.15); 
+            border-color: #ff4757; 
+            color: #ff4757;
+        }
+        button.danger:hover {
+            background-color: rgba(255, 71, 87, 0.3);
+        }
         
-        .alert-item { background: rgba(11, 12, 16, 0.6); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #ff4757; cursor: pointer; transition: background 0.2s; }
-        .alert-item:hover { background: rgba(255, 71, 87, 0.1); }
+        /* Modals */
+        .modal { 
+            display: none; 
+            position: fixed; 
+            top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(8, 9, 13, 0.85); 
+            backdrop-filter: blur(8px);
+            z-index: 10000; 
+            justify-content: center; 
+            align-items: center; 
+        }
+        .modal-content { 
+            background: #151d2a; 
+            padding: 30px; 
+            border-radius: 14px; 
+            width: 620px; 
+            max-height: 85vh; 
+            overflow-y: auto; 
+            border: 1px solid rgba(102, 252, 241, 0.2); 
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-header h2 { margin: 0; font-size: 20px; color: var(--accent-cyan); font-weight: 700; }
         
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(11, 12, 16, 0.8); z-index: 1000; justify-content: center; align-items: center; }
-        .modal-content { background: #1f2833; padding: 35px; border-radius: 16px; width: 600px; max-height: 85vh; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1); }
-        .modal-header { display: flex; justify-content: space-between; margin-bottom: 25px; }
-        
-        .clip-item { display: flex; justify-content: space-between; background: rgba(11,12,16,0.5); padding: 15px; margin-bottom: 10px; border-radius: 8px; align-items: center; }
+        .clip-item { 
+            display: flex; justify-content: space-between; 
+            background: rgba(10, 14, 22, 0.6); 
+            padding: 12px 16px; 
+            margin-bottom: 8px; 
+            border-radius: 8px; 
+            align-items: center; 
+            border: 1px solid rgba(255,255,255,0.06);
+        }
         
         #incidentImage:hover {
             transform: scale(1.02);
@@ -122,189 +500,577 @@
 </head>
 <body>
 
+    <!-- Unified Header -->
     <div class="header">
-        <h1>🛡️ Campus Sentinel NVR</h1>
-        <div style="display:flex; gap: 15px; align-items:center;">
-            <span id="connection-status" style="font-weight:600; font-size:14px; color:#eab308;">🟡 Connecting...</span>
+        <div class="header-title-box">
+            <h1>🛡️ Campus Sentinel NVR</h1>
+            <span class="header-subtitle">Multi-Stream Threat & Eco Sentinel</span>
+        </div>
+        <div style="display:flex; gap: 14px; align-items:center;">
+            <span id="connection-status" style="font-weight:600; font-size:13px; color:#eab308;">🟡 Connecting...</span>
             <button class="primary" onclick="openClips()">🎬 Saved Clips</button>
-            <button class="primary" onclick="openSettings()">⚙️ Config</button>
+            <button class="primary" onclick="openSettings()">⚙️ Config & Feeds</button>
         </div>
     </div>
 
+    <!-- Main Dashboard -->
     <div class="dashboard">
+        <!-- Live Video Grid -->
         <div class="video-grid" id="video-grid"></div>
+
+        <!-- Right Unified Sidebar -->
         <div class="sidebar">
-            <div class="sidebar-header">Incident Logs</div>
+            
+            <!-- Phase 4: Energy & Restricted Zone HUD Card -->
+            <div class="energy-hud" id="energyHUD">
+                <div class="hud-header">
+                    <div class="hud-title">
+                        <span class="live-dot"></span>
+                        ⚡ Eco-Sentinel & Zone Telemetry
+                    </div>
+                    <span id="hud-cam-label" style="font-size:11px; color:var(--text-muted); font-weight:600;">Global Telemetry</span>
+                </div>
+
+                <div class="hud-grid">
+                    <!-- Illumination Lux -->
+                    <div class="hud-stat-box">
+                        <div class="hud-label">
+                            <span>Illumination</span>
+                            <span id="hud-lux-icon">💡</span>
+                        </div>
+                        <div class="hud-value">
+                            <span id="hud-lux">--</span>
+                            <span style="font-size:11px; font-weight:500; color:var(--text-muted);">Lux</span>
+                        </div>
+                        <div class="hud-sub" id="hud-lights-status">Lighting: Normal</div>
+                    </div>
+
+                    <!-- Ceiling Fans -->
+                    <div class="hud-stat-box">
+                        <div class="hud-label">
+                            <span>Ceiling Fans</span>
+                            <span id="hud-fan-icon" class="fan-icon">🌀</span>
+                        </div>
+                        <div class="hud-value" id="hud-fans">--</div>
+                        <div class="hud-sub" id="hud-fans-sub">Upper Motion Diff</div>
+                    </div>
+
+                    <!-- Zero Occupancy Countdown -->
+                    <div class="hud-stat-box">
+                        <div class="hud-label">
+                            <span>Grace Timer</span>
+                            <span>⏱️</span>
+                        </div>
+                        <div class="hud-value">
+                            <span id="hud-countdown">0.0</span>
+                            <span style="font-size:11px; font-weight:500; color:var(--text-muted);">sec</span>
+                        </div>
+                        <div class="hud-sub" id="hud-countdown-sub">Zero Occupancy Window</div>
+                    </div>
+
+                    <!-- Relay State -->
+                    <div class="hud-stat-box">
+                        <div class="hud-label">
+                            <span>Power Relays</span>
+                            <span>🔌</span>
+                        </div>
+                        <div class="hud-value" style="margin-top:2px;">
+                            <span id="hud-relay" class="relay-pill online">ONLINE</span>
+                        </div>
+                        <div class="hud-sub" id="hud-relay-sub">Circuit Isolation</div>
+                    </div>
+                </div>
+
+                <!-- Cumulative Energy Saved (Phase 4) -->
+                <div class="hud-stat-box" style="padding: 10px 14px;">
+                    <div class="hud-label">
+                        <span>Cumulative Energy Conserved</span>
+                        <span style="color:#2ed573;">🌱 Eco-Impact</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-top:3px;">
+                        <div class="hud-value" style="font-size:20px; color:#2ed573;">
+                            <span id="hud-kwh">0.0000</span>
+                            <span style="font-size:12px; font-weight:600; color:#2ed573;">kWh</span>
+                        </div>
+                        <div style="font-size:11px; color:var(--accent-cyan); font-weight:600;" id="hud-cutoffs-count">
+                            0 Auto Cut-offs
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dynamic Action / Alert Banner -->
+                <div class="hud-action-banner" id="hud-action-banner">
+                    <span id="hud-banner-text">🛡️ System Nominal • All Feeds Monitored</span>
+                    <span id="hud-banner-sub" style="font-size:10px; opacity:0.85;">100% Active</span>
+                </div>
+            </div>
+
+            <!-- Incident Logs Header with Category Filter -->
+            <div class="sidebar-nav">
+                <div class="sidebar-title">Incident Evidence Stream</div>
+                <div class="filter-group">
+                    <button class="filter-pill active" onclick="setAlertFilter('ALL', this)">All</button>
+                    <button class="filter-pill" onclick="setAlertFilter('SECURITY', this)">Perimeter</button>
+                    <button class="filter-pill" onclick="setAlertFilter('ENERGY', this)">Energy</button>
+                    <button class="filter-pill" onclick="setAlertFilter('EXAM', this)">Exam</button>
+                </div>
+            </div>
+
+            <!-- Alert Items List -->
             <div class="alerts-container" id="alerts"></div>
         </div>
     </div>
 
-    <!-- Modals (Settings & Clips) -->
+    <!-- Modals (Settings & Camera Provisioning) -->
     <div class="modal" id="settingsModal">
         <div class="modal-content">
-            <div class="modal-header"><h2>Settings</h2><button onclick="document.getElementById('settingsModal').style.display='none'">✕</button></div>
+            <div class="modal-header">
+                <h2>⚙️ Camera Management & Modes</h2>
+                <button onclick="document.getElementById('settingsModal').style.display='none'">✕</button>
+            </div>
+            
+            <h3 style="color: #45a29e; margin-top:0; font-size:14px; text-transform:uppercase; letter-spacing:0.5px;">Active Camera Feeds</h3>
             <div id="cameraList"></div>
             
-            <hr style="border-color: rgba(255,255,255,0.1); margin: 30px 0;">
-            <h3 style="color: #45a29e; margin-top:0;">Add New Feed</h3>
-            <div class="cam-form" id="addCamForm" style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">
-                <input type="text" id="newName" placeholder="Location/Name (e.g. Exam Hall 2)" style="padding: 12px; background: rgba(11, 12, 16, 0.8); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 6px; font-family: inherit;">
-                <select id="newSourceType" onchange="toggleSourceInput()" style="padding: 12px; background: rgba(11, 12, 16, 0.8); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 6px; font-family: inherit;">
-                    <option value="webcam">Local Webcam</option>
-                    <option value="ip">IP Camera / RTSP</option>
-                    <option value="video">Upload Video File</option>
+            <hr style="border-color: rgba(255,255,255,0.08); margin: 25px 0;">
+            <h3 style="color: #45a29e; margin-top:0; font-size:14px; text-transform:uppercase; letter-spacing:0.5px;">Provision New Camera Stream</h3>
+            <div class="cam-form" id="addCamForm" style="display: flex; flex-direction: column; gap: 12px; margin-top: 15px;">
+                <input type="text" id="newName" placeholder="Camera Location / Identifier (e.g. Lab Restricted Area)" style="padding: 11px; background: rgba(10, 14, 22, 0.85); border: 1px solid rgba(255,255,255,0.12); color: white; border-radius: 6px; font-family: inherit;">
+                
+                <select id="newSourceType" onchange="toggleSourceInput()" style="padding: 11px; background: rgba(10, 14, 22, 0.85); border: 1px solid rgba(255,255,255,0.12); color: white; border-radius: 6px; font-family: inherit;">
+                    <option value="webcam">Local Webcam (USB Index)</option>
+                    <option value="ip">IP Camera / RTSP Stream</option>
+                    <option value="video">Upload Recorded Video File</option>
                 </select>
-                <input type="number" id="newWebcamIndex" placeholder="Webcam Index (e.g. 0)" min="0" style="padding: 12px; background: rgba(11, 12, 16, 0.8); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 6px; font-family: inherit;">
-                <input type="text" id="newIpUrl" placeholder="RTSP/HTTP URL" style="display:none; padding: 12px; background: rgba(11, 12, 16, 0.8); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 6px; font-family: inherit;">
-                <input type="file" id="newVideoFile" accept="video/mp4,video/x-m4v,video/*" style="display:none; padding: 12px; background: rgba(11, 12, 16, 0.8); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 6px; font-family: inherit;">
-                <select id="newMode" style="padding: 12px; background: rgba(11, 12, 16, 0.8); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 6px; font-family: inherit;">
-                    <option value="CLASSROOM">CLASSROOM (Security & Occupancy)</option>
-                    <option value="EXAM">EXAM (Malpractice Detection)</option>
+                
+                <input type="number" id="newWebcamIndex" placeholder="Webcam Device Index (e.g. 0)" min="0" style="padding: 11px; background: rgba(10, 14, 22, 0.85); border: 1px solid rgba(255,255,255,0.12); color: white; border-radius: 6px; font-family: inherit;">
+                <input type="text" id="newIpUrl" placeholder="RTSP/HTTP Video Stream URL" style="display:none; padding: 11px; background: rgba(10, 14, 22, 0.85); border: 1px solid rgba(255,255,255,0.12); color: white; border-radius: 6px; font-family: inherit;">
+                <input type="file" id="newVideoFile" accept="video/mp4,video/x-m4v,video/*" style="display:none; padding: 11px; background: rgba(10, 14, 22, 0.85); border: 1px solid rgba(255,255,255,0.12); color: white; border-radius: 6px; font-family: inherit;">
+                
+                <label style="font-size:12px; color:var(--text-muted); font-weight:600; margin-top:4px;">Inference & Sentinel Mode:</label>
+                <select id="newMode" style="padding: 11px; background: rgba(10, 14, 22, 0.85); border: 1px solid rgba(255,255,255,0.12); color: white; border-radius: 6px; font-family: inherit;">
+                    <option value="CLASSROOM">CLASSROOM (General Surveillance & Motion Gating)</option>
+                    <option value="EXAM_FRONT">EXAM_FRONT (Pose Analysis - Front Desk / Lap / Hands)</option>
+                    <option value="EXAM_REAR">EXAM_REAR (Pose Analysis - Rear Turn & Extension)</option>
+                    <option value="EXAM">EXAM (Pose Analysis & Malpractice Sentinel)</option>
+                    <option value="SECURITY">SECURITY (Restricted Perimeter & Loitering Sentinel)</option>
+                    <option value="ENERGY">ENERGY (Smart Hall Automation & Relay Power Cut-Off)</option>
                 </select>
-                <button class="primary" onclick="addCamera()">Deploy Camera</button>
+                <button class="primary" style="margin-top:8px; padding:11px;" onclick="addCamera()">🚀 Deploy Camera Stream</button>
             </div>
         </div>
     </div>
 
+    <!-- Modals (Clips Vault) -->
     <div class="modal" id="clipsModal">
         <div class="modal-content" style="width: 800px;">
-            <div class="modal-header"><h2>🎬 Saved 2-Minute Incident Clips</h2><button onclick="document.getElementById('clipsModal').style.display='none'">✕</button></div>
+            <div class="modal-header">
+                <h2>🎬 Incident Evidence & Clip Vault</h2>
+                <button onclick="document.getElementById('clipsModal').style.display='none'">✕</button>
+            </div>
             <div id="clipsList"></div>
             <div id="clipPlayerContainer" style="margin-top: 20px; display:none;">
-                <video id="clipPlayer" controls style="width: 100%; border-radius: 8px; border: 1px solid #45a29e;"></video>
+                <video id="clipPlayer" controls style="width: 100%; border-radius: 8px; border: 1px solid #45a29e; background:#000;"></video>
             </div>
         </div>
     </div>
     
+    <!-- Modals (Incident Evidence Full-Screen Modal) -->
     <div class="modal" id="incidentModal">
         <div class="modal-content" style="width: 900px;">
-            <div class="modal-header"><h2 id="incidentTitle">Incident Evidence</h2><button onclick="document.getElementById('incidentModal').style.display='none'; document.getElementById('incidentVideo').pause();">✕</button></div>
+            <div class="modal-header">
+                <h2 id="incidentTitle">Incident Evidence</h2>
+                <button onclick="document.getElementById('incidentModal').style.display='none'; document.getElementById('incidentVideo').pause();">✕</button>
+            </div>
             <div style="display:flex; gap: 20px; align-items: flex-start;">
                 <div style="flex:1;">
-                    <h3 style="margin-top:0; color:#45a29e;">High-Res Screenshot</h3>
-                    <img id="incidentImage" src="" onclick="window.open(this.src, '_blank');" style="cursor: pointer; transition: transform 0.2s; width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); min-height: 200px; object-fit: cover;" title="Click to open full-screen in new tab">
+                    <h3 style="margin-top:0; color:#45a29e; font-size:14px; text-transform:uppercase;">📸 High-Res Screenshot</h3>
+                    <img id="incidentImage" src="" onclick="window.open(this.src, '_blank');" style="cursor: pointer; transition: transform 0.2s; width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); min-height: 220px; object-fit: cover; background:#000;" title="Click to open full-screen in new tab">
                 </div>
                 <div style="flex:1;">
-                    <h3 style="margin-top:0; color:#45a29e;">30-Second Auto-Clip</h3>
-                    <video id="incidentVideo" controls style="width: 100%; border-radius: 8px; border: 1px solid #ff4757; background:#000; min-height: 200px;"></video>
+                    <h3 style="margin-top:0; color:#45a29e; font-size:14px; text-transform:uppercase;">🎥 30-Second Rolling Clip</h3>
+                    <video id="incidentVideo" controls style="width: 100%; border-radius: 8px; border: 1px solid #ff4757; background:#000; min-height: 220px;"></video>
                 </div>
             </div>
-            <p id="incidentDesc" style="margin-top:20px; font-size:18px; color:white;"></p>
+            <p id="incidentDesc" style="margin-top:20px; font-size:16px; color:#f1f2f6; line-height:1.5; background:rgba(0,0,0,0.3); padding:12px; border-radius:6px; border-left:3px solid var(--accent-cyan);"></p>
         </div>
     </div>
 
+    <!-- Application Script -->
     <script>
         let camsState = {};
         let eventCache = {};
+        let activeFilter = 'ALL';
+        let cumulativeKwh = 0.0;
+        let cumulativeCutoffs = 0;
 
+        // 1. Initial Camera Loading
         async function loadCameras() {
-            const res = await fetch('/api/cameras');
-            const cameras = await res.json();
-            
-            const grid = document.getElementById('video-grid');
-            grid.innerHTML = '';
-            
-            cameras.forEach(cam => {
-                camsState[cam.id] = { total: 0 };
-                grid.innerHTML += `
-                <div class="camera-card" id="card-${cam.id}">
-                    <div class="rec-badge" id="rec-badge-${cam.id}">● REC</div>
-                    <div class="camera-info">
-                        <span>${cam.name}</span>
-                        <button onclick="document.getElementById('card-${cam.id}').classList.toggle('enlarged')">⛶</button>
-                    </div>
-                    <img src="/video_feed/${cam.id}" style="width:100%; height:100%; object-fit:contain;">
-                    <div class="camera-controls">
-                        <div class="scrubber-container" id="scrubber-container-${cam.id}" style="display:none;">
-                            <span class="scrubber-time" id="time-${cam.id}">00:00</span>
-                            <input type="range" id="seek-${cam.id}" min="0" max="100" value="0" onchange="seekCam('${cam.id}', this.value)">
+            try {
+                const res = await fetch('/api/cameras');
+                const cameras = await res.json();
+                
+                const grid = document.getElementById('video-grid');
+                grid.innerHTML = '';
+                
+                cameras.forEach(cam => {
+                    camsState[cam.id] = { 
+                        total: 0,
+                        mode: cam.mode || 'CLASSROOM',
+                        name: cam.name || cam.id,
+                        occupancy: 0,
+                        lux: 0.0,
+                        fans: false,
+                        relay_cut_off: false,
+                        any_intrusion: false,
+                        countdown: 0.0
+                    };
+                    
+                    grid.innerHTML += `
+                    <div class="camera-card alert-green" id="card-${cam.id}">
+                        <div class="rec-badge" id="rec-badge-${cam.id}">● REC</div>
+                        
+                        <div class="camera-info">
+                            <div class="cam-name-box">
+                                <span class="cam-name-text">${cam.name}</span>
+                                <span class="cam-mode-tag mode-${cam.mode || 'CLASSROOM'}">${cam.mode || 'CLASSROOM'}</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <div class="cam-telemetry-badge" id="cam-badge-${cam.id}">
+                                    <span id="cam-status-dot-${cam.id}" style="color:#2ed573;">●</span>
+                                    <span id="cam-telemetry-text-${cam.id}">CLEAR</span>
+                                </div>
+                                <button onclick="document.getElementById('card-${cam.id}').classList.toggle('enlarged')" style="padding:4px 8px; font-size:12px;" title="Full Screen">⛶</button>
+                            </div>
                         </div>
-                        <div class="control-buttons">
-                            <button id="play-pause-${cam.id}" onclick="togglePlay('${cam.id}')">⏸ Pause</button>
-                            <button id="speed-1-${cam.id}" style="display:none;" onclick="controlCam('${cam.id}', 'speed', 1)">1x</button>
-                            <button id="speed-2-${cam.id}" style="display:none;" onclick="controlCam('${cam.id}', 'speed', 2)">⏩ 2x</button>
-                            <button id="speed-4-${cam.id}" style="display:none;" onclick="controlCam('${cam.id}', 'speed', 4)">⏩ 4x</button>
-                            <button id="btn-record-${cam.id}" class="primary" onclick="toggleRecord('${cam.id}')">🔴 Record 2-Min Clip</button>
+
+                        <img src="/video_feed/${cam.id}" alt="${cam.name}" style="width:100%; height:100%; object-fit:contain;">
+                        
+                        <div class="camera-controls">
+                            <div class="scrubber-container" id="scrubber-container-${cam.id}" style="display:none;">
+                                <span class="scrubber-time" id="time-${cam.id}">00:00</span>
+                                <input type="range" id="seek-${cam.id}" min="0" max="100" value="0" onchange="seekCam('${cam.id}', this.value)">
+                            </div>
+                            <div class="control-buttons">
+                                <button id="play-pause-${cam.id}" onclick="togglePlay('${cam.id}')">⏸ Pause</button>
+                                <button id="speed-1-${cam.id}" style="display:none;" onclick="controlCam('${cam.id}', 'speed', 1)">1x</button>
+                                <button id="speed-2-${cam.id}" style="display:none;" onclick="controlCam('${cam.id}', 'speed', 2)">⏩ 2x</button>
+                                <button id="speed-4-${cam.id}" style="display:none;" onclick="controlCam('${cam.id}', 'speed', 4)">⏩ 4x</button>
+                                <button id="btn-record-${cam.id}" class="primary" onclick="toggleRecord('${cam.id}')">🔴 Record 2-Min Clip</button>
+                            </div>
                         </div>
-                    </div>
-                </div>`;
-            });
-            renderSettingsList(cameras);
+                    </div>`;
+                });
+                renderSettingsList(cameras);
+            } catch (e) {
+                console.error("Error loading cameras:", e);
+            }
         }
 
-        async function toggleRecord(camId) {
-            const btn = document.getElementById(`btn-record-${camId}`);
-            if (btn) {
-                if (camsState[camId]?.is_capturing) {
-                    btn.innerText = '⏳ Saving Clip...';
-                } else {
-                    btn.innerText = '⏳ Initializing...';
+        // 2. Telemetry HUD and Dynamic Border Updates (Phase 4)
+        function updateTelemetryHUD(data) {
+            if (!data) return;
+            const camId = data.cam_id;
+
+            // Cache per-camera telemetry
+            if (camId && camsState[camId]) {
+                camsState[camId].occupancy = data.occupancy_count ?? data.occupancy ?? camsState[camId].occupancy;
+                camsState[camId].lux = data.lux_level ?? camsState[camId].lux;
+                camsState[camId].fans = data.fans_active ?? camsState[camId].fans;
+                camsState[camId].relay_cut_off = data.relay_cut_off ?? camsState[camId].relay_cut_off;
+                camsState[camId].countdown = data.countdown ?? camsState[camId].countdown;
+                camsState[camId].any_intrusion = data.any_intrusion ?? (data.intrusion_count > 0);
+                camsState[camId].energy_status = data.energy_status ?? camsState[camId].energy_status;
+                camsState[camId].active_alerts = data.active_alerts ?? camsState[camId].active_alerts;
+            }
+
+            // Update Dynamic Border on Camera Card (Red / Yellow / Green)
+            if (camId) {
+                const card = document.getElementById(`card-${camId}`);
+                const badgeText = document.getElementById(`cam-telemetry-text-${camId}`);
+                const badgeDot = document.getElementById(`cam-status-dot-${camId}`);
+                
+                if (card) {
+                    const isRed = data.any_intrusion || 
+                                  (data.intrusion_count > 0) || 
+                                  (data.energy_status === "ENERGY_WASTAGE") ||
+                                  (data.active_alerts && data.active_alerts.some(a => a.includes("INTRUSION") || a.includes("INTRUDER") || a.includes("ENTRY") || a.includes("MALPRACTICE"))) ||
+                                  (data.event_type && (data.event_type.includes("MALPRACTICE") || data.event_type.includes("INTRUSION") || data.event_type.includes("ENTRY")));
+                                  
+                    const isYellow = (data.countdown > 0) || 
+                                     (data.energy_status === "COUNTDOWN") ||
+                                     (data.active_alerts && data.active_alerts.some(a => a.includes("LOITER") || a.includes("SUSPICION")));
+
+                    card.classList.remove('alert-green', 'alert-yellow', 'alert-red');
+                    if (isRed) {
+                        card.classList.add('alert-red');
+                        if (badgeDot) badgeDot.style.color = '#ff4757';
+                        if (badgeText) {
+                            if (data.intrusion_count > 0 || data.any_intrusion) badgeText.innerText = `⚠️ INTRUSION (${data.intrusion_count || 1})`;
+                            else if (data.energy_status === "ENERGY_WASTAGE") badgeText.innerText = `⚡ RELAY CUT-OFF`;
+                            else badgeText.innerText = `🚨 THREAT DETECTED`;
+                        }
+                    } else if (isYellow) {
+                        card.classList.add('alert-yellow');
+                        if (badgeDot) badgeDot.style.color = '#f59e0b';
+                        if (badgeText) {
+                            if (data.countdown > 0) badgeText.innerText = `⏱️ COUNTDOWN ${data.countdown}s`;
+                            else badgeText.innerText = `⚠️ SUSPICIOUS`;
+                        }
+                    } else {
+                        card.classList.add('alert-green');
+                        if (badgeDot) badgeDot.style.color = '#2ed573';
+                        if (badgeText) {
+                            const occ = data.occupancy_count ?? data.occupancy ?? 0;
+                            badgeText.innerText = occ > 0 ? `👥 OCCUPIED (${occ})` : `🟢 CLEAR`;
+                        }
+                    }
                 }
             }
-            await controlCam(camId, 'capture');
-        }
 
-        async function controlCam(camId, action, value=null) {
-            await fetch(`/api/cameras/${camId}/control`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({action, value})
-            });
-        }
+            // Update Sidebar HUD Telemetry Card
+            const hudLux = document.getElementById('hud-lux');
+            const hudLightsStatus = document.getElementById('hud-lights-status');
+            const hudFans = document.getElementById('hud-fans');
+            const hudFanIcon = document.getElementById('hud-fan-icon');
+            const hudCountdown = document.getElementById('hud-countdown');
+            const hudRelay = document.getElementById('hud-relay');
+            const hudKwh = document.getElementById('hud-kwh');
+            const hudBanner = document.getElementById('hud-action-banner');
+            const hudBannerText = document.getElementById('hud-banner-text');
 
-        function togglePlay(camId) {
-            const btn = document.getElementById(`play-pause-${camId}`);
-            if (btn.innerText.includes('Pause')) {
-                controlCam(camId, 'pause');
+            if (data.lux_level !== undefined) {
+                hudLux.innerText = Math.round(data.lux_level);
+                hudLightsStatus.innerText = data.lights_on ? "Lighting: ACTIVE" : "Lighting: OFF";
+            }
+
+            if (data.fans_active !== undefined) {
+                if (data.fans_active) {
+                    hudFans.innerText = "ROTATING";
+                    hudFans.style.color = "#f59e0b";
+                    hudFanIcon.classList.add('spinning-fan');
+                } else {
+                    hudFans.innerText = "OFF";
+                    hudFans.style.color = "#8c9ba5";
+                    hudFanIcon.classList.remove('spinning-fan');
+                }
+            }
+
+            if (data.countdown !== undefined) {
+                hudCountdown.innerText = data.countdown > 0 ? data.countdown.toFixed(1) : "0.0";
+            }
+
+            if (data.relay_cut_off !== undefined) {
+                if (data.relay_cut_off) {
+                    hudRelay.className = "relay-pill cutoff";
+                    hudRelay.innerText = "CUT-OFF";
+                } else {
+                    hudRelay.className = "relay-pill online";
+                    hudRelay.innerText = "ONLINE";
+                }
+            }
+
+            if (data.kwh_saved !== undefined && data.kwh_saved > 0) {
+                cumulativeKwh += data.kwh_saved;
+                hudKwh.innerText = cumulativeKwh.toFixed(4);
+            }
+
+            // Dynamic Action Banner
+            if (data.energy_status === "ENERGY_WASTAGE" || data.relay_cut_off) {
+                hudBanner.className = "hud-action-banner cutoff";
+                hudBannerText.innerText = "⚡ Energy Cut-Off Active • Relays Isolated";
+            } else if (data.countdown > 0 || data.energy_status === "COUNTDOWN") {
+                hudBanner.className = "hud-action-banner countdown";
+                hudBannerText.innerText = `⏱️ Zero Occupancy Grace Window (${data.countdown}s)`;
+            } else if (data.any_intrusion || (data.intrusion_count > 0)) {
+                hudBanner.className = "hud-action-banner cutoff";
+                hudBannerText.innerText = `🚨 Restricted Perimeter Incursion Active!`;
             } else {
-                controlCam(camId, 'play');
+                hudBanner.className = "hud-action-banner";
+                hudBannerText.innerText = "🛡️ System Nominal • All Circuits Operational";
             }
         }
 
-        async function seekCam(camId, percentage) {
-            const total = camsState[camId].total || 1000;
-            const targetFrame = Math.floor((percentage / 100) * total);
-            await controlCam(camId, 'seek', targetFrame);
+        // 3. Load Cumulative Energy Summary from DB (Phase 1/4)
+        async function loadEnergySummary() {
+            try {
+                const res = await fetch('/api/energy/summary');
+                const data = await res.json();
+                if (data) {
+                    cumulativeKwh = data.total_kwh_saved || 0.0;
+                    cumulativeCutoffs = data.total_cutoff_events || 0;
+                    document.getElementById('hud-kwh').innerText = cumulativeKwh.toFixed(4);
+                    document.getElementById('hud-cutoffs-count').innerText = `${cumulativeCutoffs} Auto Cut-offs`;
+                }
+            } catch (e) {
+                console.error("Error loading energy summary:", e);
+            }
         }
 
-        // Telemetry loop
+        // 4. Incident Stream Categorization & Color-Coding (Phase 4)
+        function classifyAlert(alert) {
+            const type = (alert.event_type || "").toUpperCase();
+            const desc = (alert.description || "").toUpperCase();
+            
+            if (type.includes("DIRECTIONAL") || type.includes("INTRUSION") || type.includes("ZONE") || type.includes("LOITER") || desc.includes("RESTRICTED")) {
+                return {
+                    category: "SECURITY",
+                    tagClass: (type.includes("LOITER")) ? "tag-warning" : "tag-danger",
+                    borderClass: (type.includes("LOITER")) ? "alert-warning" : "alert-danger",
+                    icon: "🚨",
+                    tag: "PERIMETER SEC"
+                };
+            }
+            if (type.includes("ENERGY") || type.includes("RELAY") || desc.includes("LIGHT") || desc.includes("OCCUPANCY")) {
+                return {
+                    category: "ENERGY",
+                    tagClass: (type.includes("CUTOFF") || type.includes("WASTAGE")) ? "tag-danger" : "tag-warning",
+                    borderClass: (type.includes("CUTOFF") || type.includes("WASTAGE")) ? "alert-danger" : "alert-warning",
+                    icon: "⚡",
+                    tag: "ECO SENTINEL"
+                };
+            }
+            if (type.includes("MALPRACTICE") || type.includes("EXAM") || desc.includes("STUDENT") || desc.includes("HEAD")) {
+                return {
+                    category: "EXAM",
+                    tagClass: "tag-danger",
+                    borderClass: "alert-danger",
+                    icon: "📋",
+                    tag: "EXAM SENTINEL"
+                };
+            }
+            return {
+                category: "NVR",
+                tagClass: "tag-success",
+                borderClass: "alert-success",
+                icon: "📹",
+                tag: "SURVEILLANCE"
+            };
+        }
+
+        function appendAlertHtml(alert, prepend = true) {
+            eventCache[alert.id] = alert;
+            const meta = classifyAlert(alert);
+            
+            const html = `
+                <div class="alert-item ${meta.borderClass}" data-category="${meta.category}" onclick="openIncident(${alert.id})">
+                    <div class="alert-header">
+                        <span class="alert-tag ${meta.tagClass}">${meta.icon} ${meta.tag}</span>
+                        <span class="alert-time">${alert.timestamp} | ${alert.cam_id}</span>
+                    </div>
+                    <div class="alert-desc">${alert.description}</div>
+                </div>
+            `;
+            const container = document.getElementById('alerts');
+            if (prepend) container.innerHTML = html + container.innerHTML;
+            else container.innerHTML += html;
+            
+            applyFilter();
+        }
+
+        function setAlertFilter(cat, btn) {
+            activeFilter = cat;
+            document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            applyFilter();
+        }
+
+        function applyFilter() {
+            const items = document.querySelectorAll('.alert-item');
+            items.forEach(el => {
+                const cat = el.getAttribute('data-category');
+                if (activeFilter === 'ALL' || cat === activeFilter) {
+                    el.style.display = 'block';
+                } else {
+                    el.style.display = 'none';
+                }
+            });
+        }
+
+        async function loadEvents() {
+            try {
+                const res = await fetch('/api/events');
+                const events = await res.json();
+                document.getElementById('alerts').innerHTML = '';
+                events.forEach(ev => appendAlertHtml(ev, false));
+            } catch (e) {
+                console.error("Error loading events:", e);
+            }
+        }
+
+        // 5. Unified WebSocket Receiver (Phase 3 & 4)
+        const wsUrl = (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + window.location.host + '/ws/alerts';
+        function connect() {
+            const ws = new WebSocket(wsUrl);
+            ws.onopen = function() {
+                const el = document.getElementById('connection-status');
+                if (el) {
+                    el.innerText = '🟢 Connected';
+                    el.style.color = '#2ed573';
+                }
+            };
+            ws.onmessage = (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.type === 'telemetry') {
+                        // Periodic Live Telemetry Stream
+                        updateTelemetryHUD(data);
+                    } else {
+                        // Incident Alert Stream
+                        appendAlertHtml(data, true);
+                        updateTelemetryHUD(data);
+                    }
+                } catch (err) {
+                    console.error("Error parsing WS packet:", err);
+                }
+            };
+            ws.onclose = () => {
+                const el = document.getElementById('connection-status');
+                if (el) {
+                    el.innerText = '🔴 Reconnecting...';
+                    el.style.color = '#ef4444';
+                }
+                setTimeout(connect, 2000);
+            };
+        }
+
+        // 6. Camera Playback & Recording Telemetry Loop
         setInterval(async () => {
-            for(let camId in camsState) {
+            for (let camId in camsState) {
                 try {
                     const res = await fetch(`/api/cameras/${camId}/status`);
                     const status = await res.json();
-                    if(status && status.total > 0) {
+                    if (status && status.total > 0) {
                         camsState[camId].total = status.total;
                         
-                        // Reveal playback controls
-                        document.getElementById(`scrubber-container-${camId}`).style.display = 'flex';
-                        document.getElementById(`speed-1-${camId}`).style.display = 'inline-block';
-                        document.getElementById(`speed-2-${camId}`).style.display = 'inline-block';
-                        document.getElementById(`speed-4-${camId}`).style.display = 'inline-block';
+                        // Scrubber & playback controls
+                        const sc = document.getElementById(`scrubber-container-${camId}`);
+                        if (sc) sc.style.display = 'flex';
+                        const s1 = document.getElementById(`speed-1-${camId}`);
+                        if (s1) s1.style.display = 'inline-block';
+                        const s2 = document.getElementById(`speed-2-${camId}`);
+                        if (s2) s2.style.display = 'inline-block';
+                        const s4 = document.getElementById(`speed-4-${camId}`);
+                        if (s4) s4.style.display = 'inline-block';
                         
-                        // Update Play/Pause button text based on status
                         const btn = document.getElementById(`play-pause-${camId}`);
                         if (btn) {
-                            if (status.paused) {
-                                btn.innerText = '▶ Play';
-                            } else {
-                                btn.innerText = '⏸ Pause';
-                            }
+                            btn.innerText = status.paused ? '▶ Play' : '⏸ Pause';
                         }
 
                         const pct = (status.frame / status.total) * 100;
                         const slider = document.getElementById(`seek-${camId}`);
-                        if(slider && document.activeElement !== slider) {
+                        if (slider && document.activeElement !== slider) {
                             slider.value = pct;
-                            // Estimate time (15fps approx)
-                            const currentSec = Math.floor(status.frame / 15);
+                            const currentSec = Math.floor(status.frame / (status.fps || 15));
                             const m = String(Math.floor(currentSec / 60)).padStart(2, '0');
                             const s = String(currentSec % 60).padStart(2, '0');
-                            document.getElementById(`time-${camId}`).innerText = `${m}:${s}`;
+                            const timeEl = document.getElementById(`time-${camId}`);
+                            if (timeEl) timeEl.innerText = `${m}:${s}`;
                         }
                     }
 
-                    // Recording status telemetry
+                    // Recording Telemetry
                     const recBtn = document.getElementById(`btn-record-${camId}`);
                     const recBadge = document.getElementById(`rec-badge-${camId}`);
                     camsState[camId].is_capturing = !!status.is_capturing;
@@ -332,6 +1098,39 @@
             }
         }, 1000);
 
+        // 7. Manual Controls & Actions
+        async function toggleRecord(camId) {
+            const btn = document.getElementById(`btn-record-${camId}`);
+            if (btn) {
+                btn.innerText = camsState[camId]?.is_capturing ? '⏳ Saving Clip...' : '⏳ Initializing...';
+            }
+            await controlCam(camId, 'capture');
+        }
+
+        async function controlCam(camId, action, value=null) {
+            await fetch(`/api/cameras/${camId}/control`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({action, value})
+            });
+        }
+
+        function togglePlay(camId) {
+            const btn = document.getElementById(`play-pause-${camId}`);
+            if (btn && btn.innerText.includes('Pause')) {
+                controlCam(camId, 'pause');
+            } else {
+                controlCam(camId, 'play');
+            }
+        }
+
+        async function seekCam(camId, percentage) {
+            const total = camsState[camId]?.total || 1000;
+            const targetFrame = Math.floor((percentage / 100) * total);
+            await controlCam(camId, 'seek', targetFrame);
+        }
+
+        // 8. Clip Vault & Incident Modal
         async function openClips() {
             document.getElementById('clipsModal').style.display = 'flex';
             const res = await fetch('/api/clips');
@@ -342,14 +1141,14 @@
                 return;
             }
             list.innerHTML = clips.map(c => `
-                <div class="clip-item" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; margin-bottom:8px; background:rgba(255,255,255,0.05); border-radius:6px; border:1px solid rgba(255,255,255,0.1);">
+                <div class="clip-item">
                     <div>
                         <span style="font-weight:600; color:${c.filename.startsWith('clip_') ? '#e74c3c' : '#45a29e'};">
                             ${c.filename.startsWith('clip_') ? '🔴 [Manual 2-Min]' : '⚠️ [Incident 30s]'}
                         </span>
-                        <span style="margin-left:8px; color:#ddd; font-size:14px;">${c.filename}</span>
+                        <span style="margin-left:8px; color:#ddd; font-size:13px;">${c.filename}</span>
                     </div>
-                    <button class="primary" onclick="playClip('${c.url}')" style="padding:6px 14px;">▶ Play</button>
+                    <button class="primary" onclick="playClip('${c.url}')" style="padding:5px 12px; font-size:12px;">▶ Play</button>
                 </div>
             `).join('');
         }
@@ -360,81 +1159,9 @@
             container.style.display = 'block';
             player.src = url;
             player.load();
-            player.play().catch(e => console.log('Autoplay blocked or load error:', e));
+            player.play().catch(e => console.log('Autoplay blocked:', e));
         }
 
-        function toggleSourceInput() {
-            const type = document.getElementById('newSourceType').value;
-            document.getElementById('newWebcamIndex').style.display = type === 'webcam' ? 'block' : 'none';
-            document.getElementById('newIpUrl').style.display = type === 'ip' ? 'block' : 'none';
-            document.getElementById('newVideoFile').style.display = type === 'video' ? 'block' : 'none';
-        }
-
-        function renderSettingsList(cameras) {
-            const list = document.getElementById('cameraList');
-            list.innerHTML = '';
-            cameras.forEach(cam => {
-                list.innerHTML += `
-                <div class="cam-list-item" style="background: rgba(11, 12, 16, 0.5); padding: 15px; margin-bottom: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom:10px;">
-                        <strong>${cam.name}</strong>
-                        <button class="danger" onclick="deleteCamera('${cam.id}')" style="background-color: rgba(255, 71, 87, 0.2); border-color: #ff4757; color: #ff4757; border-radius:6px; padding:6px 12px; cursor:pointer;">Remove</button>
-                    </div>
-                    <div class="cam-form" style="margin-top:0;">
-                        <select onchange="updateCamera('${cam.id}', {mode: this.value})" style="padding: 8px; background: rgba(11, 12, 16, 0.8); border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 6px;">
-                            <option value="CLASSROOM" ${cam.mode === 'CLASSROOM' ? 'selected' : ''}>CLASSROOM</option>
-                            <option value="EXAM" ${cam.mode === 'EXAM' ? 'selected' : ''}>EXAM</option>
-                        </select>
-                    </div>
-                </div>`;
-            });
-        }
-
-        async function addCamera() {
-            const name = document.getElementById('newName').value;
-            const mode = document.getElementById('newMode').value;
-            const sourceType = document.getElementById('newSourceType').value;
-            let url = "";
-            if (sourceType === 'webcam') url = document.getElementById('newWebcamIndex').value;
-            else if (sourceType === 'ip') url = document.getElementById('newIpUrl').value;
-            else if (sourceType === 'video') {
-                const fileInput = document.getElementById('newVideoFile');
-                if (fileInput.files.length > 0) {
-                    const formData = new FormData();
-                    formData.append("file", fileInput.files[0]);
-                    const uploadRes = await fetch('/api/upload_video', { method: 'POST', body: formData });
-                    const uploadData = await uploadRes.json();
-                    url = uploadData.url;
-                }
-            }
-            if(!name || url === "") return alert('Name and Source required');
-            await fetch('/api/cameras', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({name, url, mode})
-            });
-            document.getElementById('newName').value = '';
-            document.getElementById('newWebcamIndex').value = '';
-            document.getElementById('newIpUrl').value = '';
-            document.getElementById('newVideoFile').value = '';
-            loadCameras();
-        }
-
-        async function updateCamera(id, updates) {
-            await fetch(`/api/cameras/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(updates) });
-            loadCameras();
-        }
-
-        async function deleteCamera(id) {
-            if(!confirm('Remove this camera feed?')) return;
-            await fetch(`/api/cameras/${id}`, { method: 'DELETE' });
-            loadCameras();
-        }
-
-        function openSettings() {
-            document.getElementById('settingsModal').style.display = 'flex';
-        }
-        
         function getMediaUrl(path) {
             if (!path) return "";
             path = path.replace(/\\/g, '/');
@@ -457,57 +1184,136 @@
             vid.src = getMediaUrl(ev.video || ev.video_path);
             
             document.getElementById('incidentModal').style.display = 'flex';
-            if(vid.src) {
+            if (vid.src) {
                 vid.play().catch(e => console.log(e));
             }
         }
 
-        function appendAlertHtml(alert, prepend = true) {
-            eventCache[alert.id] = alert;
-            const html = `
-                <div class="alert-item" onclick="openIncident(${alert.id})">
-                    <div style="font-size:12px;color:#aaa;">${alert.timestamp} | ${alert.cam_id}</div>
-                    <div>${alert.description}</div>
-                </div>
-            `;
-            const container = document.getElementById('alerts');
-            if(prepend) container.innerHTML = html + container.innerHTML;
-            else container.innerHTML += html;
+        // 9. Camera Provisioning & Settings
+        function toggleSourceInput() {
+            const type = document.getElementById('newSourceType').value;
+            document.getElementById('newWebcamIndex').style.display = type === 'webcam' ? 'block' : 'none';
+            document.getElementById('newIpUrl').style.display = type === 'ip' ? 'block' : 'none';
+            document.getElementById('newVideoFile').style.display = type === 'video' ? 'block' : 'none';
         }
 
-        async function loadEvents() {
-            const res = await fetch('/api/events');
-            const events = await res.json();
-            document.getElementById('alerts').innerHTML = '';
-            events.forEach(ev => appendAlertHtml(ev, false));
+        function renderSettingsList(cameras) {
+            const list = document.getElementById('cameraList');
+            list.innerHTML = '';
+            cameras.forEach(cam => {
+                list.innerHTML += `
+                <div class="cam-list-item" style="background: rgba(10, 14, 22, 0.6); padding: 14px; margin-bottom: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom:10px;">
+                        <div>
+                            <strong>${cam.name}</strong>
+                            <span style="font-size:11px; color:#8c9ba5; margin-left:6px;">(${cam.id})</span>
+                        </div>
+                        <button class="danger" onclick="deleteCamera('${cam.id}')" style="padding:4px 10px; font-size:11px;">Remove</button>
+                    </div>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <label style="font-size:12px; color:#8c9ba5; font-weight:600;">Mode:</label>
+                        <select id="mode-select-${cam.id}" style="padding: 6px 10px; background: rgba(10, 14, 22, 0.85); border: 1px solid rgba(255,255,255,0.12); color: white; border-radius: 6px; font-family: inherit; font-size:12px;">
+                            <option value="CLASSROOM" ${cam.mode === 'CLASSROOM' ? 'selected' : ''}>CLASSROOM</option>
+                            <option value="EXAM_FRONT" ${cam.mode === 'EXAM_FRONT' ? 'selected' : ''}>EXAM_FRONT (Front Camera)</option>
+                            <option value="EXAM_REAR" ${cam.mode === 'EXAM_REAR' ? 'selected' : ''}>EXAM_REAR (Rear Camera)</option>
+                            <option value="EXAM" ${cam.mode === 'EXAM' ? 'selected' : ''}>EXAM (Legacy)</option>
+                            <option value="SECURITY" ${cam.mode === 'SECURITY' ? 'selected' : ''}>SECURITY</option>
+                            <option value="ENERGY" ${cam.mode === 'ENERGY' ? 'selected' : ''}>ENERGY</option>
+                        </select>
+                        <button class="primary" id="save-btn-${cam.id}" onclick="saveCameraMode('${cam.id}')" style="padding: 6px 14px; font-size:11px;">💾 Save Mode</button>
+                    </div>
+                </div>`;
+            });
         }
 
-        // Add Websocket
-        const wsUrl = (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + window.location.host + '/ws/alerts';
-        function connect() {
-            const ws = new WebSocket(wsUrl);
-            ws.onopen = function() {
-                const el = document.getElementById('connection-status') || document.getElementById('ws-status');
-                if (el) {
-                    el.innerText = '🟢 Connected';
-                    el.style.color = '#4ade80';
+        async function saveCameraMode(id) {
+            const sel = document.getElementById(`mode-select-${id}`);
+            if (!sel) return;
+            const newMode = sel.value;
+            const btn = document.getElementById(`save-btn-${id}`);
+            if (btn) btn.innerText = "⏳ Saving...";
+            
+            try {
+                const res = await fetch(`/api/cameras/${id}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ mode: newMode })
+                });
+                if (res.ok) {
+                    window.location.reload();
+                } else {
+                    alert('Failed to update camera mode.');
+                    if (btn) btn.innerText = "💾 Save Mode";
                 }
-            };
-            ws.onmessage = (e) => {
-                const alert = JSON.parse(e.data);
-                appendAlertHtml(alert, true);
-            };
-            ws.onclose = () => {
-                const el = document.getElementById('connection-status') || document.getElementById('ws-status');
-                if (el) {
-                    el.innerText = '🔴 Disconnected';
-                    el.style.color = '#ef4444';
-                }
-                setTimeout(connect, 2000);
-            };
+            } catch (err) {
+                console.error("Error saving camera mode:", err);
+                alert('Network error while saving camera mode.');
+                if (btn) btn.innerText = "💾 Save Mode";
+            }
         }
 
+        async function addCamera() {
+            const name = document.getElementById('newName').value;
+            const mode = document.getElementById('newMode').value;
+            const sourceType = document.getElementById('newSourceType').value;
+            let url = "";
+            if (sourceType === 'webcam') url = document.getElementById('newWebcamIndex').value;
+            else if (sourceType === 'ip') url = document.getElementById('newIpUrl').value;
+            else if (sourceType === 'video') {
+                const fileInput = document.getElementById('newVideoFile');
+                if (fileInput.files.length > 0) {
+                    const formData = new FormData();
+                    formData.append("file", fileInput.files[0]);
+                    const uploadRes = await fetch('/api/upload_video', { method: 'POST', body: formData });
+                    const uploadData = await uploadRes.json();
+                    url = uploadData.url;
+                }
+            }
+            if (!name || url === "") return alert('Name and Source input required');
+            const res = await fetch('/api/cameras', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name, url, mode})
+            });
+            if (res.ok) {
+                window.location.reload();
+            } else {
+                alert('Failed to deploy camera.');
+            }
+        }
+
+        async function updateCamera(id, updates) {
+            try {
+                const res = await fetch(`/api/cameras/${id}`, { 
+                    method: 'PUT', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify(updates) 
+                });
+                if (res.ok) {
+                    window.location.reload();
+                } else {
+                    alert('Failed to update camera.');
+                }
+            } catch (err) {
+                console.error("Error updating camera:", err);
+            }
+        }
+
+        async function deleteCamera(id) {
+            if (!confirm('Remove this camera stream?')) return;
+            const res = await fetch(`/api/cameras/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                window.location.reload();
+            }
+        }
+
+        function openSettings() {
+            document.getElementById('settingsModal').style.display = 'flex';
+        }
+
+        // Initialize App
         loadCameras();
+        loadEnergySummary();
         loadEvents();
         connect();
     </script>

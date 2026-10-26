@@ -1,0 +1,26 @@
+{
+  "zones": [
+    {
+      "id": "Zone-1",
+      "name": "High-Voltage Transformer Yard",
+      "points": [
+        [160, 100],
+        [440, 100],
+        [440, 420],
+        [160, 420]
+      ],
+      "color": [0, 0, 255]
+    },
+    {
+      "id": "Zone-2",
+      "name": "Terrace Access Perimeter",
+      "points": [
+        [470, 120],
+        [620, 120],
+        [620, 400],
+        [470, 400]
+      ],
+      "color": [255, 120, 0]
+    }
+  ]
+}

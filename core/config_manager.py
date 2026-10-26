@@ -23,15 +23,29 @@ class ConfigManager:
                 "id": str(uuid.uuid4())[:8],
                 "name": "Exam Hall Front",
                 "url": "0",  # Default local webcam, stored as string
-                "mode": "EXAM",
+                "mode": "EXAM_FRONT",
                 "roi": [] 
             },
             {
                 "id": str(uuid.uuid4())[:8],
-                "name": "Classroom 101",
-                "url": "test_classroom.mp4", 
-                "mode": "CLASSROOM",
-                "roi": [(100, 100), (500, 100), (500, 400), (100, 400)] 
+                "name": "Exam Hall Rear",
+                "url": "storage/model school-Channel 51.MP4",
+                "mode": "EXAM_REAR",
+                "roi": [] 
+            },
+            {
+                "id": str(uuid.uuid4())[:8],
+                "name": "Terrace Restricted Zone",
+                "url": "restriction-zone_and_energy-saving_module-main/terrace.mp4", 
+                "mode": "SECURITY",
+                "roi": [(160, 100), (440, 100), (440, 420), (160, 420)] 
+            },
+            {
+                "id": str(uuid.uuid4())[:8],
+                "name": "Smart Classroom 101",
+                "url": "restriction-zone_and_energy-saving_module-main/classroom.mp4", 
+                "mode": "ENERGY",
+                "roi": [] 
             }
         ]
         self.save_config()

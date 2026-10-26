@@ -1,16 +1,30 @@
 [
     {
         "id": "dd68ab57",
-        "name": "test",
-        "url": "storage\\model school-Channel 50.MP4",
-        "mode": "EXAM",
+        "name": "Exam Hall Front",
+        "url": "storage/model school-Channel 50.MP4",
+        "mode": "EXAM_FRONT",
         "roi": []
     },
     {
         "id": "fa77b7ae",
-        "name": "test 2",
-        "url": "storage\\model school-Channel 51.MP4",
-        "mode": "EXAM",
+        "name": "Exam Hall Rear",
+        "url": "storage/model school-Channel 51.MP4",
+        "mode": "EXAM_REAR",
+        "roi": []
+    },
+    {
+        "id": "0d7d3954",
+        "name": "terrace",
+        "url": "storage\\WhatsApp Video 2026-10-26 at 9.54.09 PM.mp4",
+        "mode": "SECURITY",
+        "roi": []
+    },
+    {
+        "id": "d19f1b97",
+        "name": "smart classroom",
+        "url": "storage\\WhatsApp Video 2026-10-26 at 9.54.10 PM.mp4",
+        "mode": "ENERGY",
         "roi": []
     }
 ]

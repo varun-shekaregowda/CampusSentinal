@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Any
 import cv2
 import asyncio
 import json
@@ -30,6 +30,7 @@ templates = Jinja2Templates(directory="ui/templates")
 frame_queues = {}
 command_queues = {}
 status_queues = {}
+cached_camera_status = {}
 active_processes = {}
 alert_queue = mp.Queue()
 active_connections = []
@@ -38,13 +39,13 @@ class CameraCreate(BaseModel):
     name: str
     url: str
     mode: str
-    roi: Optional[List[Tuple[int, int]]] = None
+    roi: Optional[List[Any]] = None
 
 class CameraUpdate(BaseModel):
     name: Optional[str] = None
     url: Optional[str] = None
     mode: Optional[str] = None
-    roi: Optional[List[Tuple[int, int]]] = None
+    roi: Optional[List[Any]] = None
 
 def start_camera_process(cam):
     cam_id = cam['id']
@@ -64,15 +65,25 @@ def start_camera_process(cam):
 
 def stop_camera_process(cam_id):
     if cam_id in active_processes:
+        p = active_processes[cam_id]
         if cam_id in command_queues:
             try:
                 command_queues[cam_id].put({"action": "shutdown"})
             except:
                 pass
-        active_processes[cam_id].join(timeout=1.0)
-        if active_processes[cam_id].is_alive():
-            active_processes[cam_id].terminate()
-            active_processes[cam_id].join()
+        p.join(timeout=0.6)
+        if p.is_alive():
+            try:
+                p.terminate()
+            except:
+                pass
+            p.join(timeout=0.5)
+            if p.is_alive():
+                try:
+                    p.kill()
+                    p.join(timeout=0.3)
+                except:
+                    pass
         del active_processes[cam_id]
         print(f"Stopped Inference Process for {cam_id}")
     if cam_id in frame_queues:
@@ -81,6 +92,8 @@ def stop_camera_process(cam_id):
         del command_queues[cam_id]
     if cam_id in status_queues:
         del status_queues[cam_id]
+    if cam_id in cached_camera_status:
+        del cached_camera_status[cam_id]
 
 @app.on_event("startup")
 async def startup_event():
@@ -89,9 +102,29 @@ async def startup_event():
     asyncio.create_task(broadcast_alerts())
 
 async def broadcast_alerts():
+    """
+    WebSocket Telemetry & Alert Broadcaster:
+    - Pushes real-time alerts enriched with occupancy, lux, fan status, and active alerts
+    - Periodically (every 1.0s) broadcasts live camera telemetry to connected clients
+    """
+    last_telemetry_time = 0.0
     while True:
+        # 1. Process Incident Alerts from camera inference workers
         if not alert_queue.empty():
             alert = alert_queue.get_nowait()
+            cam_id = alert.get("cam_id")
+            
+            # Enrich alert payload with the latest camera telemetry
+            cached_stat = cached_camera_status.get(cam_id, {})
+            alert["occupancy_count"] = cached_stat.get("occupancy", cached_stat.get("occupancy_count", 0))
+            alert["lux_level"] = cached_stat.get("lux_level", 0.0)
+            alert["fans_active"] = cached_stat.get("fans_active", False)
+            alert["lights_on"] = cached_stat.get("lights_on", False)
+            alert["relay_cut_off"] = cached_stat.get("relay_cut_off", False)
+            alert["kwh_saved"] = cached_stat.get("kwh_saved", 0.0)
+            alert["energy_status"] = cached_stat.get("energy_status", "NORMAL")
+            alert["active_alerts"] = cached_stat.get("active_alerts", [])
+
             message = json.dumps(alert)
             for connection in list(active_connections):
                 try:
@@ -99,7 +132,49 @@ async def broadcast_alerts():
                 except:
                     if connection in active_connections:
                         active_connections.remove(connection)
-        await asyncio.sleep(0.1)
+
+        # 2. Periodic Live Telemetry Broadcast (Every 1.0s)
+        now = time.time()
+        if now - last_telemetry_time >= 1.0:
+            last_telemetry_time = now
+            for cam_id, sq in list(status_queues.items()):
+                try:
+                    stat = None
+                    while not sq.empty():
+                        stat = sq.get_nowait()
+                    if stat:
+                        cached_camera_status[cam_id] = stat
+
+                    cached = cached_camera_status.get(cam_id)
+                    if cached and active_connections:
+                        telemetry_msg = json.dumps({
+                            "type": "telemetry",
+                            "cam_id": cam_id,
+                            "occupancy_count": cached.get("occupancy", 0),
+                            "countdown": cached.get("countdown", 0.0),
+                            "intrusion_count": cached.get("intrusion_count", 0),
+                            "any_intrusion": cached.get("any_intrusion", False),
+                            "lux_level": cached.get("lux_level", 0.0),
+                            "fans_active": cached.get("fans_active", False),
+                            "lights_on": cached.get("lights_on", False),
+                            "relay_cut_off": cached.get("relay_cut_off", False),
+                            "kwh_saved": cached.get("kwh_saved", 0.0),
+                            "energy_status": cached.get("energy_status", "NORMAL"),
+                            "active_alerts": cached.get("active_alerts", []),
+                            "is_capturing": cached.get("is_capturing", False),
+                            "capture_left": cached.get("capture_left", 0),
+                            "fps": cached.get("fps", 20)
+                        })
+                        for connection in list(active_connections):
+                            try:
+                                await connection.send_text(telemetry_msg)
+                            except:
+                                if connection in active_connections:
+                                    active_connections.remove(connection)
+                except:
+                    pass
+
+        await asyncio.sleep(0.05)
 
 @app.get("/", response_class=HTMLResponse)
 async def get_dashboard(request: Request):
@@ -149,8 +224,36 @@ async def api_update_camera(cam_id: str, updates: CameraUpdate):
     updated_cam = config_manager.update_camera(cam_id, updates.dict(exclude_unset=True))
     if not updated_cam:
         raise HTTPException(status_code=404, detail="Camera not found")
+    # Terminate the existing camera process and spawn a new CameraPipeline
+    stop_camera_process(cam_id)
+    await asyncio.sleep(0.3)
     start_camera_process(updated_cam)
     return updated_cam
+
+@app.post("/api/config")
+@app.put("/api/config")
+async def api_save_config(request: Request):
+    data = await request.json()
+    if isinstance(data, dict):
+        cam_id = data.get("id") or data.get("cam_id")
+        if cam_id:
+            updated = config_manager.update_camera(cam_id, data)
+            if updated:
+                stop_camera_process(cam_id)
+                await asyncio.sleep(0.3)
+                start_camera_process(updated)
+                return {"status": "success", "camera": updated}
+    elif isinstance(data, list):
+        for cam in data:
+            cam_id = cam.get("id")
+            if cam_id:
+                updated = config_manager.update_camera(cam_id, cam)
+                if updated:
+                    stop_camera_process(cam_id)
+                    await asyncio.sleep(0.2)
+                    start_camera_process(updated)
+        return {"status": "success"}
+    return {"status": "ignored"}
 
 @app.delete("/api/cameras/{cam_id}")
 async def api_delete_camera(cam_id: str):
@@ -175,20 +278,60 @@ async def api_camera_control(cam_id: str, request: Request):
 
 @app.get("/api/cameras/{cam_id}/status")
 async def api_camera_status(cam_id: str):
-    default_status = {"frame": 0, "total": 0, "paused": False, "speed": 1.0, "is_capturing": False, "capture_left": 0}
+    default_status = {
+        "frame": 0,
+        "total": 0,
+        "paused": False,
+        "speed": 1.0,
+        "is_capturing": False,
+        "capture_left": 0,
+        "occupancy": 0,
+        "occupancy_count": 0,
+        "countdown": 0.0,
+        "intrusion_count": 0,
+        "any_intrusion": False,
+        "lux_level": 0.0,
+        "fans_active": False,
+        "lights_on": False,
+        "relay_cut_off": False,
+        "kwh_saved": 0.0,
+        "energy_status": "NORMAL",
+        "active_alerts": []
+    }
     if cam_id not in status_queues:
         return {"error": "Camera not found"}
     sq = status_queues[cam_id]
-    if sq.empty():
-        return default_status
     try:
-        # Get the latest status in queue
         status = None
         while not sq.empty():
             status = sq.get_nowait()
-        return status or default_status
+        if status:
+            cached_camera_status[cam_id] = status
+            status["occupancy_count"] = status.get("occupancy", 0)
+            return status
+        if cam_id in cached_camera_status:
+            c = dict(cached_camera_status[cam_id])
+            c["occupancy_count"] = c.get("occupancy", 0)
+            return c
+        return default_status
     except:
         return default_status
+
+# --- Energy & Security Analytics Endpoints (Phase 3/4) ---
+@app.get("/api/energy/summary")
+async def api_get_energy_summary():
+    from core.event_manager import event_manager
+    return event_manager.fetch_energy_summary()
+
+@app.get("/api/energy/events")
+async def api_get_energy_events(limit: int = 30):
+    from core.event_manager import event_manager
+    return event_manager.fetch_recent_energy_events(limit=limit)
+
+@app.get("/api/security/events")
+async def api_get_security_events(limit: int = 30):
+    from core.event_manager import event_manager
+    return event_manager.fetch_recent_security_events(limit=limit)
 
 @app.get("/api/clips")
 async def api_list_clips():

@@ -1,0 +1,31 @@
+{
+  "zones": [
+    {
+      "id": "Zone-Custom",
+      "name": "User Dragged Restricted Zone",
+      "points": [
+        [
+          52,
+          48
+        ],
+        [
+          490,
+          48
+        ],
+        [
+          490,
+          536
+        ],
+        [
+          52,
+          536
+        ]
+      ],
+      "color": [
+        0,
+        0,
+        255
+      ]
+    }
+  ]
+}

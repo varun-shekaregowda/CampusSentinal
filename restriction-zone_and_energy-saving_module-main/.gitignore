@@ -1,0 +1,27 @@
+# YOLO model weights (auto-downloaded, don't need to commit ~6-50MB files)
+*.pt
+
+# Generated at runtime
+intrusion_log.csv
+snapshots/
+output_recording.mp4
+zone.json
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# OS/editor junk
+.DS_Store
+.vscode/
+*.swp
+
+# Sample videos (usually large — link them in README instead)
+*.mp4
+!demo_sample.mp4
